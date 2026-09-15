@@ -132,7 +132,7 @@ const AdminPage = {
             <div class="field"><label>${esc(t('adm_user_name'))} *</label><input id="c-username"></div>
             <div class="field"><label>${esc(t('adm_user_email'))} *</label><input id="c-useremail" type="email"></div>
             <div class="field"><label>${esc(t('adm_user_password'))} *</label><input id="c-pass" value="mizan${Math.floor(1000 + Math.random() * 9000)}"></div>
-            <div class="field"><label>${esc(t('adm_add_days'))}</label><input type="number" id="c-days" value="30" min="1"></div>
+            <div class="field"><label>${esc(t('adm_add_days'))}</label><input type="number" id="c-days" value="365" min="1"></div>
           </div>
           <div class="summary-box mt" id="c-result" hidden></div>
           <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">

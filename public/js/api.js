@@ -13,15 +13,21 @@ async function api(path, opts = {}) {
     headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
+
+  let data = {};
+  try { data = await res.json(); } catch (e) { /* empty */ }
+
   if (res.status === 401) {
+    if (path === '/auth/login') {
+      throw new Error(data.error || 'bad_credentials');
+    }
     setToken(null);
     if (!location.hash.includes('login')) {
       location.hash = '#/login';
     }
-    throw new Error('unauthorized');
+    throw new Error(data.error || 'unauthorized');
   }
-  let data = {};
-  try { data = await res.json(); } catch (e) { /* empty */ }
+
   if (!res.ok) {
     const code = data.error || 'generic_error';
     if (code === 'account_suspended' || code === 'account_expired') {

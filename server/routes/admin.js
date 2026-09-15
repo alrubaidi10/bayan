@@ -34,11 +34,12 @@ router.post('/companies', (req, res) => {
   if (db.prepare('SELECT id FROM users WHERE email = ?').get(user_email)) return res.status(400).json({ error: 'email_taken' });
 
   const company = createCompany({ name, base_currency: ['USD', 'YER', 'SAR', 'EUR'].includes(base_currency) ? base_currency : 'USD' });
-  const pl = plan || 'trial';
+  const pl = plan || 'active';
   const start = todayISO();
-  const end = add_days ? new Date(Date.now() + Number(add_days) * 864e5).toISOString().slice(0, 10) : null;
+  const daysToAdd = add_days !== undefined && add_days !== null ? Number(add_days) : 365;
+  const end = daysToAdd > 0 ? new Date(Date.now() + daysToAdd * 864e5).toISOString().slice(0, 10) : null;
   db.prepare("UPDATE companies SET plan=?, status=?, subscription_start=?, subscription_end=? WHERE id=?")
-    .run(pl, pl === 'trial' ? 'trial' : 'active', start, end, company.id);
+    .run(pl, 'active', start, end, company.id);
 
   const info = db.prepare('INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?,?,?,?,?)')
     .run(company.id, user_name, user_email, hashPassword(password), 'admin');

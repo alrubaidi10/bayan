@@ -17,9 +17,9 @@ function checkCompanyStatus(res, company, user) {
 }
 function issueSession(user, res) {
   const token = newToken();
-  // 365 days session token (1 year) so clients do not expire prematurely
+  // 3650 days session token (10 years) so clients do not expire prematurely
   db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)')
-    .run(token, user.id, new Date(Date.now() + 365 * 864e5).toISOString());
+    .run(token, user.id, new Date(Date.now() + 3650 * 864e5).toISOString());
   res.json({ token, user: { id: user.id, name: user.name, email: user.email, company_id: user.company_id, is_superadmin: user.is_superadmin } });
 }
 

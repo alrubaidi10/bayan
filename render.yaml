@@ -1,0 +1,20 @@
+# Bayan ERP — Render Blueprint (optional: deploy with "New > Blueprint" on Render)
+# Or simply: New > Web Service > connect your GitHub repo and use the settings below.
+services:
+  - type: web
+    name: bayan-erp
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/index.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      # Point the SQLite database to the persistent disk so data survives restarts
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: bayan-data
+      mountPath: /var/data
+      sizeGB: 1

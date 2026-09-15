@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Database files (created at runtime; use Render persistent disk in production)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Logs & OS
+*.log
+.DS_Store
+
+# Screenshots & test artifacts
+screenshots/

@@ -1,0 +1,17 @@
+{
+  "name": "bayan-erp",
+  "version": "1.0.0",
+  "description": "Bayan ERP - SaaS Accounting (bilingual EN/AR, multi-currency, subscriptions)",
+  "main": "server/index.js",
+  "scripts": {
+    "start": "node server/index.js",
+    "seed-demo": "node server/seed.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.10.0",
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

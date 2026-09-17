@@ -172,6 +172,11 @@ const AdminPage = {
           <p class="muted small" style="margin-top:0">${esc(t('adm_login_hint'))}</p>
           <div class="form-grid">
             <div class="field"><label>${esc(t('adm_company_name'))} *</label><input id="c-name"></div>
+            <div class="field"><label>${esc(t('sub_status'))}</label>
+              <select id="c-status">
+                <option value="active" selected>نشط — Active</option>
+                <option value="trial">تجريبي — Trial</option>
+              </select></div>
             <div class="field"><label>${esc(t('set_base_cur'))}</label>
               <select id="c-cur"><option value="USD">USD — $</option><option value="YER">YER — ﷼</option><option value="SAR">SAR — ﷼</option><option value="EUR">EUR — €</option></select></div>
             <div class="field"><label>${esc(t('adm_user_name'))} *</label><input id="c-username"></div>
@@ -184,15 +189,28 @@ const AdminPage = {
             <button class="btn" id="f-cancel">${esc(t('cancel'))}</button>
             <button class="btn primary" id="f-save">${icon('plus')} ${esc(t('adm_add_customer'))}</button>
           </div>`;
+
+        const statusSelect = body.querySelector('#c-status');
+        const daysInput = body.querySelector('#c-days');
+        statusSelect.onchange = () => {
+          if (statusSelect.value === 'trial') {
+            daysInput.value = '14';
+          } else {
+            daysInput.value = '365';
+          }
+        };
+
         body.querySelector('#f-cancel').onclick = close;
         body.querySelector('#f-save').onclick = async () => {
           const payload = {
             name: body.querySelector('#c-name').value.trim(),
+            status: statusSelect.value,
+            plan: statusSelect.value === 'trial' ? 'trial' : 'active',
             base_currency: body.querySelector('#c-cur').value,
             user_name: body.querySelector('#c-username').value.trim(),
             user_email: body.querySelector('#c-useremail').value.trim(),
             password: body.querySelector('#c-pass').value,
-            add_days: parseInt(body.querySelector('#c-days').value) || undefined,
+            add_days: parseInt(daysInput.value) || undefined,
           };
           if (!payload.name || !payload.user_name || !payload.user_email || !payload.password) {
             return toast(t('err_missing_fields'), 'err');

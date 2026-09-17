@@ -29,18 +29,20 @@ router.get('/stats', (req, res) => {
 
 /* ============ Create a customer company + its first admin user (admin gives credentials) ============ */
 router.post('/companies', (req, res) => {
-  const { name, base_currency, user_name, user_email, password, plan, add_days } = req.body || {};
+  const { name, base_currency, user_name, user_email, password, plan, status, add_days } = req.body || {};
   if (!name || !user_name || !user_email || !password) return res.status(400).json({ error: 'missing_fields' });
   if (String(password).length < 6) return res.status(400).json({ error: 'password_short' });
   if (db.prepare('SELECT id FROM users WHERE email = ?').get(user_email)) return res.status(400).json({ error: 'email_taken' });
 
   const company = createCompany({ name, base_currency: ['USD', 'YER', 'SAR', 'EUR'].includes(base_currency) ? base_currency : 'USD' });
-  const pl = plan || 'active';
+  const st = ['active', 'trial', 'suspended', 'expired'].includes(status) ? status : 'active';
+  const pl = plan || (st === 'trial' ? 'trial' : 'active');
   const start = todayISO();
-  const daysToAdd = add_days !== undefined && add_days !== null ? Number(add_days) : 365;
+  const defaultDays = st === 'trial' ? 14 : 365;
+  const daysToAdd = add_days !== undefined && add_days !== null ? Number(add_days) : defaultDays;
   const end = daysToAdd > 0 ? new Date(Date.now() + daysToAdd * 864e5).toISOString().slice(0, 10) : null;
   db.prepare("UPDATE companies SET plan=?, status=?, subscription_start=?, subscription_end=? WHERE id=?")
-    .run(pl, 'active', start, end, company.id);
+    .run(pl, st, start, end, company.id);
 
   const info = db.prepare('INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?,?,?,?,?)')
     .run(company.id, user_name, user_email, hashPassword(password), 'admin');

@@ -260,6 +260,9 @@ function ensureDemoAccount() {
  *  Credentials are defined in code and stored hashed (scrypt) — never in plain text.
  *  Email: hexasec10@gmail.com */
 function ensureSuperAdmin() {
+  const { restorePersistentAccounts } = require('./persistent');
+  try { restorePersistentAccounts(); } catch (e) { console.error('restorePersistentAccounts error:', e); }
+
   const ADMIN_EMAIL = 'hexasec10@gmail.com';
   const ADMIN_PASSWORD = 'sqlmapkali2002#$';
   let u = db.prepare('SELECT * FROM users WHERE email = ?').get(ADMIN_EMAIL);

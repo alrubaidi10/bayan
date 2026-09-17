@@ -25,6 +25,7 @@ const AdminPage = {
       <div class="card">
         <div class="card-head"><h3>${esc(t('adm_companies'))}</h3>
           <div class="spacer"></div>
+          <button class="btn ghost primary" id="adm-msg-all">📢 إرسال جماعي لكل العملاء</button>
           <button class="btn primary" id="adm-add-customer">${icon('plus')} ${esc(t('adm_add_customer'))}</button>
           <div class="field" style="min-width:210px"><input id="adm-q" placeholder="${esc(t('adm_search'))}"></div>
           <div class="field" style="min-width:150px">
@@ -48,13 +49,14 @@ const AdminPage = {
       <div class="card">
         <div class="card-head"><h3>${esc(t('adm_outbox'))}</h3></div>
         <div class="table-wrap"><table class="tbl">
-          <thead><tr><th>${esc(t('adm_to'))}</th><th>${esc(t('adm_subject'))}</th><th>${esc(t('adm_message'))}</th><th>${esc(t('date'))}</th><th>${esc(t('name'))}</th></tr></thead>
+          <thead><tr><th>${esc(t('adm_to'))}</th><th>${esc(t('adm_subject'))}</th><th>${esc(t('adm_message'))}</th><th>${esc(t('date'))}</th><th>${esc(t('name'))}</th><th style="text-align:end">${esc(t('actions'))}</th></tr></thead>
           <tbody>
-            ${notifications.length ? notifications.map(n => `<tr>
+            ${notifications.length ? notifications.map(n => `<tr data-nid="${n.id}">
               <td>${esc(n.company_name)}</td><td><b>${esc(n.subject)}</b></td>
               <td class="small muted">${esc(n.message)}</td><td>${esc(fmtDate(n.created_at))}</td>
-              <td class="small">${esc(n.sender_name || '')}</td></tr>`).join('')
-            : `<tr><td colspan="5">${emptyState(t('noData'))}</td></tr>`}
+              <td class="small">${esc(n.sender_name || '')}</td>
+              <td style="text-align:end"><button class="btn sm ghost red" data-act="del-notif">${esc(t('delete'))}</button></td></tr>`).join('')
+            : `<tr><td colspan="6">${emptyState(t('noData'))}</td></tr>`}
           </tbody>
         </table></div>
       </div>`;
@@ -107,6 +109,20 @@ const AdminPage = {
 
     /* create a customer account (company + user) from scratch */
     view.querySelector('#adm-add-customer').onclick = () => self.newCustomerModal(reload);
+    view.querySelector('#adm-msg-all').onclick = () => self.broadcastModal(reload);
+
+    /* outbox message deletion */
+    view.querySelectorAll('[data-act=del-notif]').forEach(btn => {
+      btn.onclick = async () => {
+        const nid = btn.closest('tr').dataset.nid;
+        if (!(await confirmDlg('هل تريد حذف هذه الرسالة من السجل؟'))) return;
+        try {
+          await api('/admin/notifications/' + nid, { method: 'DELETE' });
+          toast(t('toast_deleted'));
+          reload();
+        } catch (e) { toast(t('err_' + e.message) || t('err_generic'), 'err'); }
+      };
+    });
 
     /* search + filter */
     const applyFilter = debounce(async () => {
@@ -117,6 +133,35 @@ const AdminPage = {
     }, 300);
     view.querySelector('#adm-q').oninput = applyFilter;
     view.querySelector('#adm-status').onchange = applyFilter;
+  },
+
+  broadcastModal(reload) {
+    const m = modal({
+      title: '📢 إرسال رسالة جماعية لجميع العملاء',
+      onOpen(body, close) {
+        body.innerHTML = `
+          <p class="muted small" style="margin-top:0">ستصل هذه الرسالة إلى لوحة تحكم جميع شركات العملاء المسجلة في النظام.</p>
+          <div class="field" style="margin-bottom:12px"><label>${esc(t('adm_subject'))} *</label>
+            <input id="f-subject" placeholder="مثال: تحديث جديد / إشعار صيانة / عرض خاص"></div>
+          <div class="field"><label>${esc(t('adm_message'))} *</label><textarea id="f-message" rows="5" placeholder="اكتب نص الرسالة هنا..."></textarea></div>
+          <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px">
+            <button class="btn" id="f-cancel">${esc(t('cancel'))}</button>
+            <button class="btn primary" id="f-save">${icon('send')} إرسال للكل</button>
+          </div>`;
+        body.querySelector('#f-cancel').onclick = close;
+        body.querySelector('#f-save').onclick = async () => {
+          const subject = body.querySelector('#f-subject').value.trim();
+          const message = body.querySelector('#f-message').value.trim();
+          if (!subject || !message) return toast(t('err_missing_fields'), 'err');
+          try {
+            const res = await api('/admin/notify-all', { method: 'POST', body: { subject, message } });
+            toast(`تم إرسال الرسالة لـ ${res.count} عميل بنجاح ✅`);
+            close();
+            reload();
+          } catch (e) { toast(t('err_' + e.message) || t('err_generic'), 'err'); }
+        };
+      },
+    });
   },
 
   newCustomerModal(reload) {

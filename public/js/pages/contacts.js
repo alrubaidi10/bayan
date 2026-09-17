@@ -39,7 +39,10 @@ function ContactsPage(kind) {
       const draw = (filter = '') => {
         const q = filter.trim().toLowerCase();
         const list = contacts.filter(c => !q || (c.name + ' ' + (c.email || '') + ' ' + (c.phone || '') + ' ' + (c.address || '')).toLowerCase().includes(q));
-        tbody.innerHTML = list.length ? list.map(c => `
+        tbody.innerHTML = list.length ? list.map(c => {
+          const cleanPhone = (c.phone || '').replace(/[^0-9]/g, '');
+          const waUrl = cleanPhone ? `https://wa.me/${cleanPhone}?text=${encodeURIComponent('مرحباً ' + c.name + '، تذكير بخصوص بيان الحساب في نظام بيان.')}` : '#';
+          return `
           <tr data-id="${c.id}">
             <td><b>${esc(c.name)}</b></td>
             <td class="muted">${esc(c.email) || '—'}</td>
@@ -49,9 +52,12 @@ function ContactsPage(kind) {
             <td class="muted">${esc(c.currency || bc)}</td>
             <td class="money ${c.balance > 0 ? '' : 'muted'}">${c.balance ? fmtMoney(c.balance, bc) : '—'}</td>
             <td style="text-align:end;white-space:nowrap">
+              ${c.phone ? `<a class="btn sm ghost green" href="${waUrl}" target="_blank" title="إرسال رسالة واتساب">💬 واتساب</a>` : ''}
+              ${c.email ? `<a class="btn sm ghost" href="mailto:${esc(c.email)}" target="_blank" title="إرسال بريد إلكتروني">✉️ بريد</a>` : ''}
               <button class="btn sm ghost" data-act="edit">${icon('edit')} ${esc(t('edit'))}</button>
             </td>
-          </tr>`).join('') : `<tr><td colspan="8">${emptyState(t('noData'))}</td></tr>`;
+          </tr>`;
+        }).join('') : `<tr><td colspan="8">${emptyState(t('noData'))}</td></tr>`;
 
         tbody.querySelectorAll('tr').forEach(tr => {
           const c = list.find(x => x.id === Number(tr.dataset.id));

@@ -1,6 +1,7 @@
 const express = require('express');
 const { db, requireAuth, hashPassword, todayISO, daysLeft } = require('../lib');
 const { createCompany } = require('../seed');
+const { syncAccount } = require('../persistent');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -46,11 +47,15 @@ router.post('/companies', (req, res) => {
   const user = db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(info.lastInsertRowid);
 
   db.prepare('INSERT INTO notifications (company_id, subject, message, sender_name) VALUES (?,?,?,?)').run(company.id,
-    'Welcome to Mizan ERP',
-    'Your account was created by the platform admin. You can change your password anytime from Settings.',
-    'Mizan Admin');
+    'مرحباً بك في نظام بيان ERP',
+    'تم إنشاء حسابك بنجاح بواسطة إدارة النظام. يمكنك تغيير كلمة المرور في أي وقت من قائمة الإعدادات.',
+    'إدارة بيان');
 
-  res.json({ company: db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id), user });
+  const fullCompany = db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id);
+  const fullUser = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
+  syncAccount(fullCompany, fullUser);
+
+  res.json({ company: fullCompany, user });
 });
 
 /* ============ Users of a company ============ */
@@ -69,6 +74,11 @@ router.put('/users/:id/password', (req, res) => {
   const { password } = req.body || {};
   if (!password || String(password).length < 6) return res.status(400).json({ error: 'password_short' });
   db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), u.id);
+
+  const updatedUser = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
+  const comp = db.prepare('SELECT * FROM companies WHERE id = ?').get(u.company_id);
+  syncAccount(comp, updatedUser);
+
   res.json({ ok: true });
 });
 
@@ -100,7 +110,11 @@ router.post('/companies/:id/users', (req, res) => {
   if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return res.status(400).json({ error: 'email_taken' });
   const info = db.prepare('INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?,?,?,?,?)')
     .run(company.id, name, email, hashPassword(password), role === 'staff' ? 'staff' : 'admin');
-  res.json({ user: db.prepare('SELECT id, name, email, role FROM users WHERE id = ?').get(info.lastInsertRowid) });
+  const newUser = db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
+
+  syncAccount(company, newUser);
+
+  res.json({ user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role } });
 });
 
 /* ============ Subscription management (days / months / years / exact date) ============ */
@@ -122,7 +136,12 @@ router.put('/companies/:id/subscription', (req, res) => {
   const pl = plan || company.plan;
   db.prepare('UPDATE companies SET plan=?, subscription_end=?, status=?, subscription_start=COALESCE(subscription_start, ?) WHERE id=?')
     .run(pl, end || null, st, todayISO(), company.id);
-  res.json({ company: db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id) });
+
+  const updatedComp = db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id);
+  const users = db.prepare('SELECT * FROM users WHERE company_id = ?').all(company.id);
+  for (const u of users) syncAccount(updatedComp, u);
+
+  res.json({ company: updatedComp });
 });
 
 router.put('/companies/:id/status', (req, res) => {
@@ -131,7 +150,12 @@ router.put('/companies/:id/status', (req, res) => {
   const { status } = req.body || {};
   if (!['active', 'trial', 'suspended', 'expired'].includes(status)) return res.status(400).json({ error: 'invalid_status' });
   db.prepare('UPDATE companies SET status = ? WHERE id = ?').run(status, company.id);
-  res.json({ company: db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id) });
+
+  const updatedComp = db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id);
+  const users = db.prepare('SELECT * FROM users WHERE company_id = ?').all(company.id);
+  for (const u of users) syncAccount(updatedComp, u);
+
+  res.json({ company: updatedComp });
 });
 
 /* ============ Send subscription message to a customer ============ */
@@ -141,8 +165,22 @@ router.post('/companies/:id/notify', (req, res) => {
   const { subject, message } = req.body || {};
   if (!subject || !message) return res.status(400).json({ error: 'missing_fields' });
   const info = db.prepare('INSERT INTO notifications (company_id, subject, message, sender_name) VALUES (?,?,?,?)')
-    .run(company.id, subject, message, req.user.user_name);
+    .run(company.id, subject, message, req.user.user_name || 'إدارة بيان');
   res.json({ notification: db.prepare('SELECT * FROM notifications WHERE id = ?').get(info.lastInsertRowid) });
+});
+
+/* ============ Send message to ALL customer companies (Broadcast) ============ */
+router.post('/notify-all', (req, res) => {
+  const { subject, message } = req.body || {};
+  if (!subject || !message) return res.status(400).json({ error: 'missing_fields' });
+  const companies = db.prepare('SELECT id FROM companies').all();
+  const ins = db.prepare('INSERT INTO notifications (company_id, subject, message, sender_name) VALUES (?,?,?,?)');
+  let count = 0;
+  for (const c of companies) {
+    ins.run(c.id, subject, message, req.user.user_name || 'إدارة بيان');
+    count++;
+  }
+  res.json({ ok: true, count });
 });
 
 /* ============ Outbox (sent messages log) ============ */
@@ -154,4 +192,10 @@ router.get('/notifications', (req, res) => {
   res.json({ notifications: rows });
 });
 
+router.delete('/notifications/:id', (req, res) => {
+  db.prepare('DELETE FROM notifications WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
+
 module.exports = router;
+

@@ -35,7 +35,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(6),
               decoration: BoxDecoration(
-                color: const Color(0FFE50914),
+                color: const Color(0xFFE50914),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.account_balance, color: Colors.white, size: 20),
@@ -72,14 +72,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     end: Alignment.bottomLeft,
                   ),
                   borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0FFE50914).withOpacity(0.5)),
+                  border: Border.all(color: const Color(0xFFE50914).withOpacity(0.5)),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: const BoxDecoration(
-                        color: Color(0FFE50914),
+                        color: Color(0xFFE50914),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(Icons.savings_outlined, color: Colors.white, size: 28),
@@ -96,7 +96,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           SizedBox(height: 4),
                           Text(
                             'نظام بيان المحاسبي المزدوج يعمل بدون إنترنت',
-                            style: TextStyle(color: Color(0FF9A9DB0), fontSize: 13),
+                            style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 13),
                           ),
                         ],
                       ),
@@ -147,11 +147,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             decoration: BoxDecoration(
                               color: const Color(0xFF252631),
                               borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: const Color(0FFE50914).withOpacity(0.3)),
+                              border: Border.all(color: const Color(0xFFE50914).withOpacity(0.3)),
                             ),
                             child: Icon(
                               item['icon'] as IconData,
-                              color: const Color(0FFE50914),
+                              color: const Color(0xFFE50914),
                               size: 26,
                             ),
                           ),
@@ -191,21 +191,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Color(0xFF252631),
-                        child: Icon(Icons.receipt_long, color: Color(0FFE50914)),
+                        child: Icon(Icons.receipt_long, color: Color(0xFFE50914)),
                       ),
                       title: Text('فاتورة مبيعات #INV-0001', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text('العميل: شركة الألفية', style: TextStyle(color: Color(0FF9A9DB0))),
-                      trailing: Text('+$780.00', style: TextStyle(color: Color(0FF00C853), fontSize: 15, fontWeight: FontWeight.bold)),
+                      subtitle: Text('العميل: شركة الألفية', style: TextStyle(color: Color(0xFF9A9DB0))),
+                      trailing: Text('+$780.00', style: TextStyle(color: Color(0xFF00C853), fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                     Divider(color: Color(0xFF2B2C38)),
                     ListTile(
                       leading: CircleAvatar(
                         backgroundColor: Color(0xFF252631),
-                        child: Icon(Icons.shopping_bag, color: Color(0FFFF2D55)),
+                        child: Icon(Icons.shopping_bag, color: Color(0xFFFF2D55)),
                       ),
                       title: Text('فاتورة شراء #BILL-0002', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text('المورد: التوريدات العالمية', style: TextStyle(color: Color(0FF9A9DB0))),
-                      trailing: Text('-$620.00', style: TextStyle(color: Color(0FFE50914), fontSize: 15, fontWeight: FontWeight.bold)),
+                      subtitle: Text('المورد: التوريدات العالمية', style: TextStyle(color: Color(0xFF9A9DB0))),
+                      trailing: Text('-$620.00', style: TextStyle(color: Color(0xFFE50914), fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -219,7 +219,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onPressed: () {
           // Open quick action modal (New Invoice / Quick Sale)
         },
-        backgroundColor: const Color(0FFE50914),
+        backgroundColor: const Color(0xFFE50914),
         child: const Icon(Icons.add, color: Colors.white, size: 28),
       ),
       bottomNavigationBar: Directionality(
@@ -228,8 +228,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           currentIndex: _selectedIndex,
           onTap: (index) => setState(() => _selectedIndex = index),
           backgroundColor: const Color(0xFF1C1D24),
-          selectedItemColor: const Color(0FFE50914),
-          unselectedItemColor: const Color(0FF9A9DB0),
+          selectedItemColor: const Color(0xFFE50914),
+          unselectedItemColor: const Color(0xFF9A9DB0),
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
             BottomNavigationBarItem(icon: Icon(Icons.widgets_outlined), label: 'الخدمات'),

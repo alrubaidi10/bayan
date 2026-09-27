@@ -13,3 +13,11 @@ data/
 
 # Screenshots & test artifacts
 screenshots/
+
+# Flutter build outputs
+bayan_flutter/build/
+bayan_flutter/.dart_tool/
+bayan_flutter/.idea/
+bayan_flutter/android/.gradle/
+bayan_flutter/ios/Pods/
+

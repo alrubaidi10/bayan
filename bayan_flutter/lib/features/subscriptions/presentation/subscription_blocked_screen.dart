@@ -26,7 +26,7 @@ class SubscriptionBlockedScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF1C1D24),
                 borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: const Color(0FFE50914).withOpacity(0.5), width: 1.5),
+                border: Border.all(color: const Color(0xFFE50914).withOpacity(0.5), width: 1.5),
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -34,10 +34,10 @@ class SubscriptionBlockedScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
-                      color: const Color(0FFE50914).withOpacity(0.15),
+                      color: const Color(0xFFE50914).withOpacity(0.15),
                       shape: BoxShape.circle,
                     ),
-                    child: const Icon(Icons.block, color: Color(0FFE50914), size: 56),
+                    child: const Icon(Icons.block, color: Color(0xFFE50914), size: 56),
                   ),
                   const SizedBox(height: 20),
                   Text(
@@ -49,14 +49,14 @@ class SubscriptionBlockedScreen extends StatelessWidget {
                   Text(
                     message,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: Color(0FF9A9DB0), fontSize: 14, height: 1.5),
+                    style: const TextStyle(color: Color(0xFF9A9DB0), fontSize: 14, height: 1.5),
                   ),
                   const SizedBox(height: 24),
 
                   // Support & Renewal options
                   ElevatedButton.icon(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0FFE50914),
+                      backgroundColor: const Color(0xFFE50914),
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
@@ -70,7 +70,7 @@ class SubscriptionBlockedScreen extends StatelessWidget {
                   OutlinedButton.icon(
                     style: OutlinedButton.styleFrom(
                       foregroundColor: Colors.white,
-                      side: const BorderSide(color: Color(0FF2B2C38)),
+                      side: const BorderSide(color: Color(0xFF2B2C38)),
                       minimumSize: const Size(double.infinity, 48),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),

@@ -69,7 +69,7 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                   children: [
                     Row(
                       children: [
-                        const Icon(Icons.card_membership, color: Color(0FFE50914)),
+                        const Icon(Icons.card_membership, color: Color(0xFFE50914)),
                         const SizedBox(width: 10),
                         Text(
                           'إدارة اشتراك: ${company['name']}',
@@ -80,7 +80,7 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                     const Divider(color: Color(0xFF2B2C38), height: 24),
 
                     // 1. Subscription Status (Active, Trial, Suspended)
-                    const Text('حالة الحساب:', style: TextStyle(color: Color(0FF9A9DB0), fontSize: 14)),
+                    const Text('حالة الحساب:', style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 14)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<SubscriptionStatus>(
                       value: selectedStatus,
@@ -99,7 +99,7 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                     const SizedBox(height: 16),
 
                     // 2. Subscription Type (Monthly, Quarterly, Annual, Trial)
-                    const Text('نوع الاشتراك / الدورات:', style: TextStyle(color: Color(0FF9A9DB0), fontSize: 14)),
+                    const Text('نوع الاشتراك / الدورات:', style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 14)),
                     const SizedBox(height: 8),
                     DropdownButtonFormField<SubscriptionType>(
                       value: selectedType,
@@ -119,7 +119,7 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                     const SizedBox(height: 16),
 
                     // 3. Days Duration Input
-                    const Text('عدد الأيام المضافة لتحديث الصلاحية:', style: TextStyle(color: Color(0FF9A9DB0), fontSize: 14)),
+                    const Text('عدد الأيام المضافة لتحديث الصلاحية:', style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 14)),
                     const SizedBox(height: 8),
                     TextFormField(
                       initialValue: '30',
@@ -139,7 +139,7 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                         Expanded(
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0FFE50914),
+                              backgroundColor: const Color(0xFFE50914),
                               padding: const EdgeInsets.symmetric(vertical: 14),
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                             ),
@@ -189,11 +189,11 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
             final type = c['type'] as SubscriptionType;
             final daysLeft = c['daysLeft'] as int;
 
-            Color badgeColor = const Color(0FF00C853);
+            Color badgeColor = const Color(0xFF00C853);
             if (status == SubscriptionStatus.suspended || status == SubscriptionStatus.expired) {
-              badgeColor = const Color(0FFE50914);
+              badgeColor = const Color(0xFFE50914);
             } else if (status == SubscriptionStatus.trial) {
-              badgeColor = const Color(0FFFFAB00);
+              badgeColor = const Color(0xFFFFAB00);
             }
 
             return Card(
@@ -226,9 +226,9 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                       ],
                     ),
                     const SizedBox(height: 8),
-                    Text('البريد: ${c['owner']}', style: const TextStyle(color: Color(0FF9A9DB0), fontSize: 13)),
+                    Text('البريد: ${c['owner']}', style: const TextStyle(color: Color(0xFF9A9DB0), fontSize: 13)),
                     const SizedBox(height: 4),
-                    Text('نوع الباقة: ${SubscriptionModel.getTypeLabel(type)}', style: const TextStyle(color: Color(0FF9A9DB0), fontSize: 13)),
+                    Text('نوع الباقة: ${SubscriptionModel.getTypeLabel(type)}', style: const TextStyle(color: Color(0xFF9A9DB0), fontSize: 13)),
                     const SizedBox(height: 4),
                     Text('المتبقي: $daysLeft يوم (تاريخ الانتهاء: ${c['expiry']})', style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 12),
@@ -238,8 +238,8 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                         if (status != SubscriptionStatus.suspended)
                           OutlinedButton.icon(
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0FFE50914),
-                              side: const BorderSide(color: Color(0FFE50914)),
+                              foregroundColor: const Color(0xFFE50914),
+                              side: const BorderSide(color: Color(0xFFE50914)),
                             ),
                             icon: const Icon(Icons.block, size: 16),
                             label: const Text('إيقاف الحساب (عدم سداد)'),
@@ -255,7 +255,7 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                           )
                         else
                           ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0FF00C853)),
+                            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF00C853)),
                             icon: const Icon(Icons.check_circle, size: 16, color: Colors.white),
                             label: const Text('تفعيل الحساب', style: TextStyle(color: Colors.white)),
                             onPressed: () {
@@ -270,7 +270,7 @@ class _SubscriptionsAdminScreenState extends State<SubscriptionsAdminScreen> {
                           ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
-                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0FF252631)),
+                          style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF252631)),
                           icon: const Icon(Icons.settings_outlined, size: 16, color: Colors.white),
                           label: const Text('تعديل الاشتراك', style: TextStyle(color: Colors.white)),
                           onPressed: () => _openManageSubscriptionModal(c),

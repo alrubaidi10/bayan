@@ -27,7 +27,7 @@ dependencies:
 
   # State Management & Utilities
   flutter_riverpod: ^2.4.9
-  intl: ^0.19.0
+  intl: ^0.18.1
   connectivity_plus: ^5.0.2
 
   # UI Components & Charts

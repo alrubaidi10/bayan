@@ -72,6 +72,44 @@ router.get('/stock-moves/:id', (req, res) => {
   res.json({ product: p, moves });
 });
 
+/* ============ Manual Stock Adjustment ============ */
+router.post('/stock-moves', (req, res) => {
+  const { product_id, date, qty, unit_cost, move_type, memo } = req.body || {};
+  if (!product_id || !date || qty === undefined || qty === null) return res.status(400).json({ error: 'missing_fields' });
+  const p = productById(product_id, req.user.company_id);
+  if (!p) return res.status(404).json({ error: 'not_found' });
+
+  // move_type: 'in' = stock receipt, 'out' = stock issue, 'adjust' = adjustment (can be negative)
+  let qtyNum = Number(qty);
+  if (move_type === 'out') qtyNum = -Math.abs(qtyNum);
+  else if (move_type === 'in') qtyNum = Math.abs(qtyNum);
+  // 'adjust' keeps the sign as-is
+
+  const cost = Number(unit_cost) || p.cost;
+
+  db.prepare('INSERT INTO stock_moves (company_id, product_id, date, qty, ref_type, ref_id, unit_cost) VALUES (?,?,?,?,?,?,?)')
+    .run(req.user.company_id, p.id, date, qtyNum, 'manual', 0, cost);
+
+  // update product stock
+  db.prepare('UPDATE products SET stock = ROUND(stock + ?, 4) WHERE id = ?').run(qtyNum, p.id);
+
+  const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(p.id);
+  res.json({ product: updated, qty_change: qtyNum });
+});
+
+/* ============ Inventory Summary (all products with stats) ============ */
+router.get('/inventory/summary', (req, res) => {
+  const cid = req.user.company_id;
+  const products = db.prepare('SELECT * FROM products WHERE company_id = ? ORDER BY name').all(cid)
+    .map(p => ({ ...p, low: p.stock <= p.reorder_level, value: r2(p.stock * p.cost) }));
+  const totalValue = r2(products.reduce((s, p) => s + p.value, 0));
+  const totalItems = products.length;
+  const lowStockCount = products.filter(p => p.low).length;
+  const outOfStock = products.filter(p => p.stock <= 0).length;
+  const categories = [...new Set(products.map(p => p.category).filter(Boolean))].sort();
+  res.json({ products, totalValue, totalItems, lowStockCount, outOfStock, categories });
+});
+
 /* ============ Settings & Currencies ============ */
 router.get('/settings', (req, res) => {
   const company = db.prepare('SELECT * FROM companies WHERE id = ?').get(req.user.company_id);

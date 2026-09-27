@@ -38,6 +38,7 @@ const ICONS = {
   building: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M9 22v-4h6v4"/><line x1="8" y1="6" x2="10" y2="6"/><line x1="8" y1="10" x2="10" y2="10"/><line x1="14" y1="6" x2="16" y2="6"/><line x1="14" y1="10" x2="16" y2="10"/>',
   bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
   send: '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+  minus: '<line x1="5" y1="12" x2="19" y2="12"/>',
 };
 function icon(name, cls) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls || ''}">${ICONS[name] || ''}</svg>`;
@@ -98,3 +99,11 @@ function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 /* debounce */
 function debounce(fn, ms) { let tm; return (...a) => { clearTimeout(tm); tm = setTimeout(() => fn(...a), ms); }; }
+
+/* close the topmost open modal */
+function closeModal() {
+  const root = document.getElementById('modal-root');
+  const last = root && root.lastElementChild;
+  if (last) last.remove();
+}
+

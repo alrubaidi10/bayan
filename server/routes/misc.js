@@ -120,7 +120,7 @@ router.get('/settings', (req, res) => {
 
 router.put('/settings', (req, res) => {
   const company = db.prepare('SELECT * FROM companies WHERE id = ?').get(req.user.company_id);
-  const { name, base_currency, tax_enabled, tax_rate } = req.body || {};
+  const { name, base_currency, tax_enabled, tax_rate, seller_name, tax_no, address, phone } = req.body || {};
   if (base_currency && base_currency !== company.base_currency) {
     const oldBase = db.prepare('SELECT rate FROM currencies WHERE company_id=? AND code=?').get(req.user.company_id, company.base_currency);
     const newBase = db.prepare('SELECT rate FROM currencies WHERE company_id=? AND code=?').get(req.user.company_id, base_currency);
@@ -128,10 +128,18 @@ router.put('/settings', (req, res) => {
     const factor = oldBase.rate / newBase.rate; // old rate units of X per old base -> new rate per new base
     db.prepare('UPDATE currencies SET rate = ROUND(rate * ?, 4) WHERE company_id = ?').run(factor, req.user.company_id);
   }
-  db.prepare('UPDATE companies SET name=?, base_currency=?, tax_enabled=?, tax_rate=? WHERE id=?')
-    .run(name ?? company.name, base_currency ?? company.base_currency,
+  db.prepare('UPDATE companies SET name=?, base_currency=?, tax_enabled=?, tax_rate=?, seller_name=?, tax_no=?, address=?, phone=? WHERE id=?')
+    .run(
+      name ?? company.name,
+      base_currency ?? company.base_currency,
       tax_enabled === undefined ? company.tax_enabled : (tax_enabled ? 1 : 0),
-      tax_rate === undefined ? company.tax_rate : Number(tax_rate), company.id);
+      tax_rate === undefined ? company.tax_rate : Number(tax_rate),
+      seller_name === undefined ? (company.seller_name || '') : seller_name,
+      tax_no === undefined ? (company.tax_no || '') : tax_no,
+      address === undefined ? (company.address || '') : address,
+      phone === undefined ? (company.phone || '') : phone,
+      company.id
+    );
   const c2 = db.prepare('SELECT * FROM companies WHERE id = ?').get(req.user.company_id);
   const currencies = db.prepare('SELECT * FROM currencies WHERE company_id = ? ORDER BY code').all(req.user.company_id);
   res.json({ company: c2, currencies });
@@ -157,6 +165,22 @@ router.get('/notifications', (req, res) => {
 router.post('/notifications/read-all', (req, res) => {
   db.prepare('UPDATE notifications SET read = 1 WHERE company_id = ? AND read = 0').run(req.user.company_id);
   res.json({ ok: true });
+});
+
+/* ============ Inventory Print Report ============ */
+router.get('/inventory/print-report', (req, res) => {
+  const cid = req.user.company_id;
+  const products = db.prepare(`
+    SELECT p.*, ROUND(p.stock * p.cost, 2) as value
+    FROM products p
+    WHERE p.company_id = ?
+    ORDER BY p.category ASC, p.name ASC
+  `).all(cid).map(p => ({ ...p, low: p.stock <= p.reorder_level }));
+  const totalValue = products.reduce((s, p) => s + (p.value || 0), 0);
+  const totalItems = products.length;
+  const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+  const company = db.prepare('SELECT * FROM companies WHERE id = ?').get(cid);
+  res.json({ products, totalValue: Math.round(totalValue * 100) / 100, totalItems, categories, company });
 });
 
 module.exports = router;

@@ -81,7 +81,11 @@ function renderShell() {
       ['suppliers', 'nav_suppliers', 'building'],
       ['expenses', 'nav_expenses', 'receipt'],
     ]},
-    { label: 'nav_inventory', items: [['inventory', 'nav_products', 'box']] },
+    { label: 'nav_inventory', items: [
+      ['inventory', 'nav_products', 'box'],
+      ['inventory-print', 'nav_inv_print', 'file'],
+      ['transfers', 'nav_transfers', 'layers'],
+    ] },
     { label: 'nav_reports', items: [['reports', 'nav_reports', 'bar']] },
     { label: '', items: [
       ['settings', 'nav_settings', 'gear'],
@@ -226,6 +230,8 @@ const PAGES = {
   customers: () => ContactsPage('customer'),
   suppliers: () => ContactsPage('supplier'),
   inventory: InventoryPage,
+  'inventory-print': InventoryPrintPage,
+  transfers: TransfersPage,
   expenses: ExpensesPage,
   debts: DebtsPage,
   reports: ReportsPage,
@@ -238,7 +244,8 @@ const PAGE_CRUMBS = {
   trial: 'nav_accounting', pnl: 'nav_accounting', 'balance-sheet': 'nav_accounting',
   invoices: 'nav_sales', quotes: 'nav_sales', bills: 'nav_purchases',
   customers: 'nav_sales', suppliers: 'nav_purchases', expenses: 'nav_purchases',
-  inventory: 'nav_inventory', reports: 'nav_reports', debts: '', settings: '', admin: '',
+  inventory: 'nav_inventory', 'inventory-print': 'nav_inventory', transfers: 'nav_inventory',
+  reports: 'nav_reports', debts: '', settings: '', admin: '',
 };
 
 function route() {

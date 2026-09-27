@@ -24,6 +24,7 @@ app.use('/api', require('./routes/sales'));
 app.use('/api', require('./routes/misc'));
 app.use('/api', require('./routes/quotes'));
 app.use('/api/backup', require('./routes/backup'));
+app.use('/api/stock-transfers', require('./routes/transfers'));
 app.use('/api/admin', require('./routes/admin'));
 
 // ensure the platform super-admin exists (admin@mizan.local / admin1234)

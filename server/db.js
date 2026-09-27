@@ -219,6 +219,26 @@ CREATE INDEX IF NOT EXISTS idx_entries_company ON journal_entries(company_id);
 CREATE INDEX IF NOT EXISTS idx_inv_company ON invoices(company_id, kind);
 CREATE INDEX IF NOT EXISTS idx_moves_product ON stock_moves(product_id);
 CREATE INDEX IF NOT EXISTS idx_notif_company ON notifications(company_id);
+
+CREATE TABLE IF NOT EXISTS stock_transfers (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  number TEXT NOT NULL,
+  date TEXT NOT NULL,
+  from_location TEXT NOT NULL DEFAULT 'المستودع الرئيسي',
+  to_location TEXT NOT NULL DEFAULT 'فرع',
+  memo TEXT DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'draft',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS stock_transfer_items (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  transfer_id INTEGER NOT NULL REFERENCES stock_transfers(id) ON DELETE CASCADE,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  qty REAL NOT NULL DEFAULT 0,
+  unit_cost REAL NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_transfers_company ON stock_transfers(company_id);
 `);
 
 /* ---------- Migrations for subscription/superadmin (keeps existing DBs) ---------- */
@@ -245,6 +265,17 @@ ensureColumn('quote_items', 'base_amount', "base_amount REAL NOT NULL DEFAULT 0"
 ensureColumn('quotes', 'subtotal_base', "subtotal_base REAL NOT NULL DEFAULT 0");
 ensureColumn('quotes', 'tax_base', "tax_base REAL NOT NULL DEFAULT 0");
 ensureColumn('quotes', 'total_base', "total_base REAL NOT NULL DEFAULT 0");
+
+// Seller info on companies
+ensureColumn('companies', 'seller_name', "seller_name TEXT NOT NULL DEFAULT ''");
+ensureColumn('companies', 'tax_no', "tax_no TEXT NOT NULL DEFAULT ''");
+ensureColumn('companies', 'address', "address TEXT NOT NULL DEFAULT ''");
+ensureColumn('companies', 'phone', "phone TEXT NOT NULL DEFAULT ''");
+// Invoice payment type
+ensureColumn('invoices', 'payment_type', "payment_type TEXT NOT NULL DEFAULT 'credit'");
+// Return invoice tracking
+ensureColumn('invoices', 'return_of_id', "return_of_id INTEGER DEFAULT NULL");
+ensureColumn('invoices', 'returned_qty', "returned_qty REAL NOT NULL DEFAULT 0");
 
 /* Backfill base-currency totals for rows created before per-line currency support */
 db.exec(`UPDATE invoices SET subtotal_base = ROUND(subtotal/fx_rate,2), tax_base = ROUND(tax_amount/fx_rate,2), total_base = ROUND(total/fx_rate,2)

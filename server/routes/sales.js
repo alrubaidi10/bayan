@@ -105,6 +105,91 @@ router.delete('/invoices/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+/* ============ Invoice Return (Credit Note) ============ */
+router.post('/invoices/:id/return', (req, res) => {
+  const inv = db.prepare('SELECT * FROM invoices WHERE id = ? AND company_id = ?').get(req.params.id, req.user.company_id);
+  if (!inv) return res.status(404).json({ error: 'not_found' });
+  if (inv.status === 'draft') return res.status(400).json({ error: 'not_posted' });
+  if (inv.kind === 'return_sale' || inv.kind === 'return_purchase') return res.status(400).json({ error: 'cannot_return_return' });
+
+  const { date, items, memo } = req.body || {};
+  const cid = req.user.company_id;
+  const returnDate = date || new Date().toISOString().slice(0, 10);
+  const originalItems = db.prepare('SELECT * FROM invoice_items WHERE invoice_id = ?').all(inv.id);
+
+  // Determine which items to return (default: all)
+  const returnItems = items || originalItems.map(it => ({ invoice_item_id: it.id, qty: it.qty }));
+
+  const returnKind = inv.kind === 'sale' ? 'return_sale' : 'return_purchase';
+  const prefix = inv.kind === 'sale' ? 'RET' : 'RBILL';
+  const n = db.prepare(`SELECT COUNT(*) n FROM invoices WHERE company_id = ? AND kind = ?`).get(cid, returnKind).n + 1;
+  const returnNumber = prefix + '-' + String(n).padStart(4, '0');
+
+  // Build return invoice
+  let subtotalBase = 0;
+  const rows = [];
+  for (const ri of returnItems) {
+    const orig = originalItems.find(it => it.id === ri.invoice_item_id) || originalItems[0];
+    if (!orig) continue;
+    const qty = Math.min(Number(ri.qty) || orig.qty, orig.qty);
+    const base = r2(orig.base_amount * qty / orig.qty);
+    subtotalBase += base;
+    rows.push({ product_id: orig.product_id, description: orig.description, qty, unit_price: orig.unit_price, amount: r2(orig.amount * qty / orig.qty), base_amount: base, currency: orig.currency || inv.currency, fx_rate: orig.fx_rate || inv.fx_rate });
+  }
+  subtotalBase = r2(subtotalBase);
+  const taxBase = r2(subtotalBase * (inv.tax_amount / Math.max(inv.subtotal, 0.01)));
+  const totalBase = r2(subtotalBase + taxBase);
+  const subtotal = r2(subtotalBase * inv.fx_rate);
+  const taxAmount = r2(taxBase * inv.fx_rate);
+  const total = r2(totalBase * inv.fx_rate);
+
+  const retId = db.prepare(`INSERT INTO invoices (company_id, kind, number, contact_id, date, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo, return_of_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+    .run(cid, returnKind, returnNumber, inv.contact_id, returnDate, inv.currency, inv.fx_rate, subtotal, taxAmount, total, subtotalBase, taxBase, totalBase, 'posted', memo || 'مردود: ' + inv.number, inv.id)
+    .lastInsertRowid;
+
+  const insItem = db.prepare('INSERT INTO invoice_items (invoice_id, product_id, description, qty, unit_price, amount, base_amount, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?,?)');
+  for (const r of rows) insItem.run(retId, r.product_id, r.description, r.qty, r.unit_price, r.amount, r.base_amount, r.currency, r.fx_rate);
+
+  // Reverse inventory and journal
+  const coa = { ar: '1100', ap: '2100', revenue: '4000', cogs: '5000', inventory: '1200', tax: '2200' };
+  const acc = (code) => db.prepare('SELECT id FROM accounts WHERE company_id=? AND code=?').get(cid, code);
+  const lines = [];
+
+  if (inv.kind === 'sale') {
+    // Reverse: Dr Revenue, Dr Tax, Cr AR
+    lines.push({ account_id: acc(coa.revenue).id, debit: subtotalBase, credit: 0 });
+    if (taxBase > 0) lines.push({ account_id: acc(coa.tax).id, debit: taxBase, credit: 0 });
+    lines.push({ account_id: acc(coa.ar).id, debit: 0, credit: totalBase });
+    // Return inventory
+    for (const r of rows) {
+      if (!r.product_id) continue;
+      const p = productById(r.product_id, cid);
+      const cost = p.cost;
+      lines.push({ account_id: acc(coa.inventory).id, debit: cost * r.qty, credit: 0 });
+      lines.push({ account_id: acc(coa.cogs).id, debit: 0, credit: cost * r.qty });
+      db.prepare('UPDATE products SET stock = stock + ? WHERE id = ?').run(r.qty, p.id);
+      db.prepare('INSERT INTO stock_moves (company_id, product_id, date, qty, ref_type, ref_id, unit_cost) VALUES (?,?,?,?,?,?,?)').run(cid, p.id, returnDate, r.qty, 'return', retId, cost);
+    }
+  } else {
+    // Reverse purchase bill: Dr AP, Cr Inventory
+    lines.push({ account_id: acc(coa.ap).id, debit: totalBase, credit: 0 });
+    lines.push({ account_id: acc(coa.inventory).id, debit: 0, credit: subtotalBase });
+    if (taxBase > 0) lines.push({ account_id: acc(coa.tax).id, debit: 0, credit: taxBase });
+    for (const r of rows) {
+      if (!r.product_id) continue;
+      const p = productById(r.product_id, cid);
+      db.prepare('UPDATE products SET stock = stock - ? WHERE id = ?').run(r.qty, p.id);
+      db.prepare('INSERT INTO stock_moves (company_id, product_id, date, qty, ref_type, ref_id, unit_cost) VALUES (?,?,?,?,?,?,?)').run(cid, p.id, returnDate, -r.qty, 'return', retId, r.unit_price / (r.fx_rate || 1));
+    }
+  }
+
+  const { createEntry } = require('../lib');
+  createEntry(cid, returnDate, 'Return ' + inv.number, returnNumber, 'return', retId, lines);
+
+  res.json({ invoice: db.prepare('SELECT * FROM invoices WHERE id = ?').get(retId) });
+});
+
 /* ============ Expenses ============ */
 router.get('/expenses', (req, res) => {
   let sql = `

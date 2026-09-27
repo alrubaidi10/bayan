@@ -36,6 +36,10 @@ const SettingsPage = {
         <div class="card-body">
           <div class="form-grid">
             <div class="field"><label>${esc(t('companyName'))}</label><input id="c-name" value="${esc(company.name)}"></div>
+            <div class="field"><label>${esc(t('set_seller_name'))}</label><input id="c-seller" value="${esc(company.seller_name || '')}" placeholder="${esc(t('set_seller_ph'))}"></div>
+            <div class="field"><label>${esc(t('set_tax_no'))}</label><input id="c-taxno" value="${esc(company.tax_no || '')}" placeholder="${esc(t('set_tax_no_ph'))}"></div>
+            <div class="field"><label>${esc(t('phone'))}</label><input id="c-phone" value="${esc(company.phone || '')}" placeholder="+966 5x xxx xxxx"></div>
+            <div class="field" style="grid-column:1/-1"><label>${esc(t('address'))}</label><input id="c-address" value="${esc(company.address || '')}" placeholder="${esc(t('set_address_ph'))}"></div>
             <div class="field"><label>${esc(t('set_base_cur'))}</label>
               <select id="c-base">${s.currencies.map(c => `<option value="${c.code}" ${c.code === bc ? 'selected' : ''}>${esc(c.code)} — ${esc(c.symbol)}</option>`).join('')}</select></div>
           </div>
@@ -178,6 +182,10 @@ const SettingsPage = {
           method: 'PUT',
           body: {
             name: view.querySelector('#c-name').value.trim() || company.name,
+            seller_name: view.querySelector('#c-seller').value.trim(),
+            tax_no: view.querySelector('#c-taxno').value.trim(),
+            phone: view.querySelector('#c-phone').value.trim(),
+            address: view.querySelector('#c-address').value.trim(),
             base_currency: view.querySelector('#c-base').value,
             tax_enabled: view.querySelector('#c-tax').checked,
             tax_rate: parseFloat(view.querySelector('#c-taxrate').value) || 0,

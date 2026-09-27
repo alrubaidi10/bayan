@@ -12,15 +12,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedIndex = 0;
 
   final List<Map<String, dynamic>> _gridActions = [
+    {'title': 'فواتير المبيعات', 'icon': Icons.point_of_sale_outlined, 'screen': 'sales'},
+    {'title': 'فواتير المشتريات', 'icon': Icons.shopping_cart_outlined, 'screen': 'purchases'},
+    {'title': 'سندات القبض', 'icon': Icons.arrow_downward_outlined, 'screen': 'receipts'},
+    {'title': 'سندات الصرف', 'icon': Icons.arrow_upward_outlined, 'screen': 'payments'},
+    {'title': 'القيود اليومية', 'icon': Icons.menu_book_outlined, 'screen': 'journal'},
+    {'title': 'شجرة الحسابات', 'icon': Icons.account_tree_outlined, 'screen': 'accounts'},
+    {'title': 'إدارة المخزون', 'icon': Icons.inventory_2_outlined, 'screen': 'inventory'},
+    {'title': 'التقارير المالية', 'icon': Icons.assessment_outlined, 'screen': 'reports'},
     {'title': 'إدارة الاشتراكات', 'icon': Icons.card_membership_outlined, 'screen': 'subscriptions'},
-    {'title': 'تحويلات مالية', 'icon': Icons.swap_horizontal_circle_outlined},
-    {'title': 'حوالات محلية', 'icon': Icons.send_to_mobile_outlined},
-    {'title': 'الشحن والسداد', 'icon': Icons.phone_android_outlined},
-    {'title': 'شراء اونلاين', 'icon': Icons.shopping_cart_outlined},
-    {'title': 'دفع المشتريات', 'icon': Icons.shopping_bag_outlined},
-    {'title': 'سحب نقدي', 'icon': Icons.atm_outlined},
-    {'title': 'المدفوعات', 'icon': Icons.account_balance_wallet_outlined},
-    {'title': 'حسابي والديون', 'icon': Icons.shield_outlined},
   ];
 
   @override
@@ -42,8 +42,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(width: 8),
             const Text(
-              'بيان ERP',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+              'نظام بيان المحاسبي ERP',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white),
             ),
           ],
         ),
@@ -61,7 +61,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // 1. Top Promo Banner Card
+              // 1. Top Accounting Header Summary
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -74,39 +74,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(color: const Color(0xFFE50914).withOpacity(0.5)),
                 ),
-                child: Row(
+                child: Column(
                   children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFE50914),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.savings_outlined, color: Colors.white, size: 28),
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFE50914),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.analytics_outlined, color: Colors.white, size: 24),
+                        ),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'نظام المحاسبة المزدوجة والمخزون',
+                                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+                              ),
+                              SizedBox(height: 2),
+                              Text(
+                                'يعمل أوفلاين مع المزامنة السحابية وتتبع الاشتراكات',
+                                style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'ابدأ المحاسبة والتنظيم..',
-                            style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          SizedBox(height: 4),
-                          Text(
-                            'نظام بيان المحاسبي المزدوج يعمل بدون إنترنت',
-                            style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 13),
-                          ),
-                        ],
-                      ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildKpiSummary('إجمالي المبيعات', '+\$12,450.00', const Color(0xFF00C853)),
+                        Container(width: 1, height: 35, color: const Color(0xFF2B2C38)),
+                        _buildKpiSummary('إجمالي المشتريات', '-\$4,120.00', const Color(0xFFFF2D55)),
+                        Container(width: 1, height: 35, color: const Color(0xFF2B2C38)),
+                        _buildKpiSummary('صافي الأرباح', '+\$8,330.00', const Color(0xFFFFAB00)),
+                      ],
                     ),
                   ],
                 ),
               ),
               const SizedBox(height: 20),
 
-              // 2. Action Grid (3 columns matching screenshot)
+              const Text(
+                'وحدات النظام المحاسبي والإداري',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+
+              // 2. ERP Action Grid (3 columns matching user UI design preference)
               GridView.builder(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
@@ -128,7 +149,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         );
                       } else {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('تم النقر على: ${item['title']}')),
+                          SnackBar(content: Text('تم فتح وحدة: ${item['title']}')),
                         );
                       }
                     },
@@ -152,7 +173,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             child: Icon(
                               item['icon'] as IconData,
                               color: const Color(0xFFE50914),
-                              size: 26,
+                              size: 24,
                             ),
                           ),
                           const SizedBox(height: 10),
@@ -173,10 +194,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ),
               const SizedBox(height: 24),
 
-              // 3. Transactions Section
+              // 3. Accounting Transactions Section
               const Text(
-                'العمليات الأخيرة',
-                style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                'أحدث القيود والفواتير المحاسبية',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 12),
               Container(
@@ -193,9 +214,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         backgroundColor: Color(0xFF252631),
                         child: Icon(Icons.receipt_long, color: Color(0xFFE50914)),
                       ),
-                      title: Text('فاتورة مبيعات #INV-0001', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text('العميل: شركة الألفية', style: TextStyle(color: Color(0xFF9A9DB0))),
-                      trailing: Text('+$780.00', style: TextStyle(color: Color(0xFF00C853), fontSize: 15, fontWeight: FontWeight.bold)),
+                      title: Text('فاتورة مبيعات #INV-1001', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text('العميل: شركة الأمل - قيد آلي 401/101', style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 12)),
+                      trailing: Text('+\$1,250.00', style: TextStyle(color: Color(0xFF00C853), fontSize: 14, fontWeight: FontWeight.bold)),
                     ),
                     Divider(color: Color(0xFF2B2C38)),
                     ListTile(
@@ -203,9 +224,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         backgroundColor: Color(0xFF252631),
                         child: Icon(Icons.shopping_bag, color: Color(0xFFFF2D55)),
                       ),
-                      title: Text('فاتورة شراء #BILL-0002', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                      subtitle: Text('المورد: التوريدات العالمية', style: TextStyle(color: Color(0xFF9A9DB0))),
-                      trailing: Text('-$620.00', style: TextStyle(color: Color(0xFFE50914), fontSize: 15, fontWeight: FontWeight.bold)),
+                      title: Text('فاتورة شراء #PUR-2005', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text('المورد: شركة التوريدات - قيد آلي 501/201', style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 12)),
+                      trailing: Text('-\$620.00', style: TextStyle(color: Color(0xFFE50914), fontSize: 14, fontWeight: FontWeight.bold)),
+                    ),
+                    Divider(color: Color(0xFF2B2C38)),
+                    ListTile(
+                      leading: CircleAvatar(
+                        backgroundColor: Color(0xFF252631),
+                        child: Icon(Icons.arrow_downward, color: Color(0xFF00C853)),
+                      ),
+                      title: Text('سند قبض #REC-3012', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                      subtitle: Text('الصندوق الرئيسي - سداد حساب عميل', style: TextStyle(color: Color(0xFF9A9DB0), fontSize: 12)),
+                      trailing: Text('+\$500.00', style: TextStyle(color: Color(0xFF00C853), fontSize: 14, fontWeight: FontWeight.bold)),
                     ),
                   ],
                 ),
@@ -217,7 +248,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          // Open quick action modal (New Invoice / Quick Sale)
+          _showQuickAddMenu(context);
         },
         backgroundColor: const Color(0xFFE50914),
         child: const Icon(Icons.add, color: Colors.white, size: 28),
@@ -232,12 +263,66 @@ class _DashboardScreenState extends State<DashboardScreen> {
           unselectedItemColor: const Color(0xFF9A9DB0),
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.home), label: 'الرئيسية'),
-            BottomNavigationBarItem(icon: Icon(Icons.widgets_outlined), label: 'الخدمات'),
-            BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'التقارير'),
-            BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'الملف'),
+            BottomNavigationBarItem(icon: Icon(Icons.menu_book), label: 'الدفاتر'),
+            BottomNavigationBarItem(icon: Icon(Icons.bar_chart), label: 'القوائم المالية'),
+            BottomNavigationBarItem(icon: Icon(Icons.person_outline), label: 'الملف والترخيص'),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildKpiSummary(String title, String val, Color color) {
+    return Column(
+      children: [
+        Text(title, style: const TextStyle(color: Color(0xFF9A9DB0), fontSize: 11)),
+        const SizedBox(height: 4),
+        Text(val, style: TextStyle(color: color, fontSize: 13, fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
+  void _showQuickAddMenu(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1C1D24),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) {
+        return Directionality(
+          textDirection: TextDirection.rtl,
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'إضافة قيد أو فاتورة جديدة ➕',
+                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                ListTile(
+                  leading: const Icon(Icons.receipt_long, color: Color(0xFF00C853)),
+                  title: const Text('فاتورة مبيعات جديدة', style: TextStyle(color: Colors.white)),
+                  onTap: () => Navigator.pop(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.shopping_bag, color: Color(0xFFFF2D55)),
+                  title: const Text('فاتورة مشتريات جديدة', style: TextStyle(color: Colors.white)),
+                  onTap: () => Navigator.pop(context),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.menu_book, color: Color(0xFFE50914)),
+                  title: const Text('قيد يومية مزدوج جديد', style: TextStyle(color: Colors.white)),
+                  onTap: () => Navigator.pop(context),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

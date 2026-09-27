@@ -26,6 +26,19 @@ async function loadMeta() {
     App.currencies = {};
     for (const c of s.currencies) App.currencies[c.code] = c;
     window._currencies = App.currencies;
+
+    // Load branches
+    try {
+      const bData = await api('/branches');
+      App.branches = bData.branches || [];
+      // If user is assigned to a specific branch, enforce it
+      if (App.me?.user?.branch_id) {
+        setActiveBranchId(App.me.user.branch_id);
+      } else if (!getActiveBranchId() && App.branches.length) {
+        // Admin with no branch set: default to first branch
+        setActiveBranchId(App.branches[0].id);
+      }
+    } catch (be) { App.branches = []; }
   } catch (e) { /* ok */ }
 }
 
@@ -64,10 +77,10 @@ window.showBlocked = showBlocked;
 const ROLE_PAGES = {
   admin:      ['dashboard','debts','accounts','journal','ledger','trial','pnl','balance-sheet',
                'invoices','bills','customers','suppliers','expenses','quotes',
-               'inventory','inventory-print','transfers','reports','settings','users'],
+               'inventory','inventory-print','transfers','reports','settings','users','branches'],
   manager:    ['dashboard','debts','accounts','journal','ledger','trial','pnl','balance-sheet',
                'invoices','bills','customers','suppliers','expenses','quotes',
-               'inventory','inventory-print','transfers','reports'],
+               'inventory','inventory-print','transfers','reports','branches'],
   accountant: ['dashboard','accounts','journal','ledger','trial','pnl','balance-sheet',
                'invoices','bills','expenses','debts','quotes','reports'],
   staff:      ['dashboard','invoices','bills','customers','suppliers','expenses','quotes',
@@ -118,7 +131,10 @@ function renderShell() {
     { label: 'nav_reports', items: [['reports', 'nav_reports', 'bar']] },
     { label: '', items: [
       ['settings', 'nav_settings', 'gear'],
-      ...(isAdmin ? [['users', 'usr_title', 'users']] : []),
+      ...(isAdmin ? [
+        ['branches', 'br_title', 'building'],
+        ['users', 'usr_title', 'users'],
+      ] : []),
       ...(isSuper ? [['admin', 'nav_admin', 'gear']] : []),
     ]},
   ];
@@ -173,6 +189,8 @@ function renderShell() {
         <span class="crumb" id="page-crumb"></span>
         <div class="spacer"></div>
         ${subChip}
+        <!-- Branch selector for admin / branch indicator for non-admin -->
+        <div id="branch-chip-wrap" style="display:flex;align-items:center;margin-inline-end:6px"></div>
         <span class="badge primary" title="${esc(t('base_cur_note', { cur: sub.base_currency }))}">${esc(sub.base_currency)}</span>
         <div class="bell-wrap" id="bell-wrap">
           <button class="icon-btn" id="bell-btn">${icon('bell')}<span class="bell-count" id="bell-count" hidden></span></button>
@@ -205,6 +223,33 @@ function renderShell() {
     renderShell();
     route();
   };
+
+  /* Render Branch Chip / Switcher */
+  const branchWrap = shell.querySelector('#branch-chip-wrap');
+  if (branchWrap) {
+    const branches = App.branches || [];
+    const activeBid = getActiveBranchId();
+    const currentBranch = branches.find(b => String(b.id) === String(activeBid)) || branches[0];
+    const isFixedBranch = !!App.me.user.branch_id; // non-admin has fixed branch
+
+    if (isFixedBranch && currentBranch) {
+      branchWrap.innerHTML = `<span class="badge gray" style="display:flex;align-items:center;gap:4px">
+        🏢 <b>${esc(currentBranch.name)}</b>
+      </span>`;
+    } else if (branches.length > 1) {
+      branchWrap.innerHTML = `<select id="branch-select" style="padding:3px 8px;border-radius:12px;font-size:.82rem;font-weight:600;background:var(--bg);border:1px solid var(--border);cursor:pointer">
+        ${branches.map(b => `<option value="${b.id}" ${String(b.id) === String(activeBid) ? 'selected' : ''}>🏢 ${esc(b.name)}</option>`).join('')}
+      </select>`;
+      branchWrap.querySelector('#branch-select').onchange = (e) => {
+        setActiveBranchId(e.target.value);
+        const chosen = branches.find(b => String(b.id) === String(e.target.value));
+        toast(t('br_switched_to', { name: chosen ? chosen.name : '' }));
+        route();
+      };
+    } else if (currentBranch) {
+      branchWrap.innerHTML = `<span class="badge gray">🏢 ${esc(currentBranch.name)}</span>`;
+    }
+  }
 
   /* mobile drawer: hamburger + backdrop + auto-close on navigation */
   const sidebar = shell.querySelector('#sidebar');
@@ -282,6 +327,7 @@ const PAGES = {
   quotes: QuotesPage,
   settings: SettingsPage,
   users: UsersPage,
+  branches: BranchesPage,
   admin: AdminPage,
 };
 const PAGE_CRUMBS = {
@@ -290,7 +336,7 @@ const PAGE_CRUMBS = {
   invoices: 'nav_sales', quotes: 'nav_sales', bills: 'nav_purchases',
   customers: 'nav_sales', suppliers: 'nav_purchases', expenses: 'nav_purchases',
   inventory: 'nav_inventory', 'inventory-print': 'nav_inventory', transfers: 'nav_inventory',
-  reports: 'nav_reports', debts: '', settings: '', admin: '', users: '',
+  reports: 'nav_reports', debts: '', settings: '', admin: '', users: '', branches: '',
 };
 
 function route() {

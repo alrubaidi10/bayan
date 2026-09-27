@@ -287,4 +287,50 @@ db.exec(`UPDATE invoices SET subtotal_base = ROUND(subtotal/fx_rate,2), tax_base
 db.exec(`UPDATE quotes SET subtotal_base = ROUND(subtotal/fx_rate,2), tax_base = ROUND(tax_amount/fx_rate,2), total_base = ROUND(total/fx_rate,2)
   WHERE total_base IS NULL OR total_base = 0`);
 
+// Branches table
+db.exec(`CREATE TABLE IF NOT EXISTS branches (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  name TEXT NOT NULL,
+  code TEXT NOT NULL DEFAULT '',
+  address TEXT NOT NULL DEFAULT '',
+  phone TEXT NOT NULL DEFAULT '',
+  is_active INTEGER NOT NULL DEFAULT 1,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_branches_company ON branches(company_id);`);
+
+// Auto-create a default branch for each company that doesn't have one yet
+const companiesWithoutBranch = db.prepare(
+  'SELECT id, name FROM companies WHERE id NOT IN (SELECT DISTINCT company_id FROM branches)'
+).all();
+for (const co of companiesWithoutBranch) {
+  db.prepare('INSERT INTO branches (company_id, name, code) VALUES (?,?,?)').run(co.id, 'الفرع الرئيسي', 'MAIN');
+}
+
+// Add branch_id to key tables
+ensureColumn('users', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+ensureColumn('contacts', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+ensureColumn('products', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+ensureColumn('invoices', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+ensureColumn('expenses', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+ensureColumn('quotes', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+ensureColumn('stock_transfers', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+ensureColumn('journal_entries', 'branch_id', 'branch_id INTEGER DEFAULT NULL');
+
+// Backfill: assign existing records to the default branch (MAIN)
+// Find each company's main branch
+const mainBranches = db.prepare('SELECT id, company_id FROM branches WHERE code = ? OR id IN (SELECT MIN(id) FROM branches GROUP BY company_id)').all('MAIN');
+for (const mb of mainBranches) {
+  const bid = mb.id;
+  const cid = mb.company_id;
+  db.prepare('UPDATE contacts SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
+  db.prepare('UPDATE products SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
+  db.prepare('UPDATE invoices SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
+  db.prepare('UPDATE expenses SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
+  db.prepare('UPDATE quotes SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
+  db.prepare('UPDATE stock_transfers SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
+  db.prepare('UPDATE journal_entries SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
+}
+
 module.exports = db;

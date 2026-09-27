@@ -15,14 +15,17 @@ function requireCompanyAdmin(req, res, next) {
 /* GET /api/users — list all users in this company */
 router.get('/', requireCompanyAdmin, (req, res) => {
   const users = db.prepare(
-    'SELECT id, name, email, role, created_at FROM users WHERE company_id = ? ORDER BY role, name'
+    \`SELECT u.id, u.name, u.email, u.role, u.branch_id, u.created_at, b.name AS branch_name 
+     FROM users u 
+     LEFT JOIN branches b ON b.id = u.branch_id
+     WHERE u.company_id = ? ORDER BY u.role, u.name\`
   ).all(req.user.company_id);
   res.json({ users });
 });
 
 /* POST /api/users — create a new user in this company */
 router.post('/', requireCompanyAdmin, (req, res) => {
-  const { name, email, password, role } = req.body || {};
+  const { name, email, password, role, branch_id } = req.body || {};
   if (!name || !email || !password || !role) return res.status(400).json({ error: 'missing_fields' });
   if (String(password).length < 6) return res.status(400).json({ error: 'password_short' });
 
@@ -33,8 +36,8 @@ router.post('/', requireCompanyAdmin, (req, res) => {
   if (taken) return res.status(400).json({ error: 'email_taken' });
 
   const info = db.prepare(
-    'INSERT INTO users (company_id, name, email, password_hash, role) VALUES (?,?,?,?,?)'
-  ).run(req.user.company_id, name.trim(), email.trim().toLowerCase(), hashPassword(password), role);
+    'INSERT INTO users (company_id, branch_id, name, email, password_hash, role) VALUES (?,?,?,?,?,?)'
+  ).run(req.user.company_id, branch_id || null, name.trim(), email.trim().toLowerCase(), hashPassword(password), role);
 
   const user = db.prepare('SELECT id, name, email, role, created_at FROM users WHERE id = ?').get(info.lastInsertRowid);
   res.json({ user });
@@ -48,7 +51,7 @@ router.put('/:id', requireCompanyAdmin, (req, res) => {
   // Cannot change superadmin role
   if (user.is_superadmin) return res.status(403).json({ error: 'forbidden' });
 
-  const { name, email, role, password } = req.body || {};
+  const { name, email, role, password, branch_id } = req.body || {};
   const VALID_ROLES = ['admin', 'manager', 'accountant', 'staff', 'cashier'];
   if (role && !VALID_ROLES.includes(role)) return res.status(400).json({ error: 'invalid_role' });
 
@@ -68,10 +71,11 @@ router.put('/:id', requireCompanyAdmin, (req, res) => {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(hashPassword(password), user.id);
   }
 
-  db.prepare('UPDATE users SET name = ?, email = ?, role = ? WHERE id = ?').run(
+  db.prepare('UPDATE users SET name = ?, email = ?, role = ?, branch_id = ? WHERE id = ?').run(
     name ?? user.name,
     email ?? user.email,
     role ?? user.role,
+    branch_id !== undefined ? branch_id : user.branch_id,
     user.id
   );
 

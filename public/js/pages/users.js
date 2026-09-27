@@ -40,6 +40,7 @@ const UsersPage = {
             <th>${esc(t('fullName'))}</th>
             <th>${esc(t('email'))}</th>
             <th>${esc(t('usr_role'))}</th>
+            <th>${esc(t('br_title'))}</th>
             <th>${esc(t('usr_permissions'))}</th>
             <th>${esc(t('date'))}</th>
             <th style="text-align:end">${esc(t('actions'))}</th>
@@ -55,6 +56,9 @@ const UsersPage = {
                 </td>
                 <td class="mono muted">${esc(u.email)}</td>
                 <td><span class="badge ${meta.color}">${meta.icon} ${esc(meta.label)}</span></td>
+                <td>
+                  ${u.branch_name ? `<span class="badge gray">🏢 ${esc(u.branch_name)}</span>` : `<span class="badge primary small">${esc(t('br_all_branches'))}</span>`}
+                </td>
                 <td class="muted small">${esc(t('role_pages_' + u.role))}</td>
                 <td class="muted small">${esc(fmtDate(u.created_at))}</td>
                 <td style="text-align:end;white-space:nowrap">
@@ -127,6 +131,8 @@ const UsersPage = {
     const isEdit = !!user;
     const ROLES = ['admin', 'manager', 'accountant', 'staff', 'cashier'];
 
+    const branches = App.branches || [];
+
     modal({
       title: isEdit ? t('usr_edit') : t('usr_new'),
       onOpen(body, close) {
@@ -144,7 +150,12 @@ const UsersPage = {
                     cashier: '🧾 ' + t('role_cashier') }[r]
                 }</option>`).join('')}
               </select></div>
-            <div class="field"><label>${esc(t(isEdit ? 'adm_new_password' : 'adm_user_password'))} ${isEdit ? `<span class="muted small">(${esc(t('set_pass_keep'))})</span>` : '*'}</label>
+            <div class="field"><label>${esc(t('br_title'))}</label>
+              <select id="u-branch">
+                <option value="">${esc(t('br_all_branches_admin'))}</option>
+                ${branches.map(b => `<option value="${b.id}" ${user && String(user.branch_id) === String(b.id) ? 'selected' : ''}>🏢 ${esc(b.name)}</option>`).join('')}
+              </select></div>
+            <div class="field" style="grid-column:1/-1"><label>${esc(t(isEdit ? 'adm_new_password' : 'adm_user_password'))} ${isEdit ? `<span class="muted small">(${esc(t('set_pass_keep'))})</span>` : '*'}</label>
               <input id="u-pass" type="password" autocomplete="new-password" placeholder="••••••" ${!isEdit ? 'required' : ''}></div>
           </div>
           <!-- Role description -->
@@ -175,11 +186,12 @@ const UsersPage = {
           const name = body.querySelector('#u-name').value.trim();
           const email = body.querySelector('#u-email').value.trim();
           const role = body.querySelector('#u-role').value;
+          const branch_id = body.querySelector('#u-branch').value ? Number(body.querySelector('#u-branch').value) : null;
           const password = body.querySelector('#u-pass').value;
           if (!name || !email || !role) return toast(t('err_missing_fields'), 'err');
           if (!isEdit && !password) return toast(t('err_missing_fields'), 'err');
           try {
-            const payload = { name, email, role };
+            const payload = { name, email, role, branch_id };
             if (password) payload.password = password;
             if (isEdit) await api('/users/' + user.id, { method: 'PUT', body: payload });
             else await api('/users', { method: 'POST', body: payload });

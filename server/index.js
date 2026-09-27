@@ -19,6 +19,7 @@ app.use(express.static(path.join(__dirname, '..', 'public')));
 app.get('/api/health', (req, res) => res.json({ ok: true, status: 'up', time: new Date().toISOString() }));
 
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/branches', require('./routes/branches'));
 app.use('/api', require('./routes/core'));
 app.use('/api', require('./routes/sales'));
 app.use('/api', require('./routes/misc'));

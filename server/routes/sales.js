@@ -7,13 +7,18 @@ router.use(requireAuth);
 /* ============ Invoices & Bills ============ */
 router.get('/invoices', (req, res) => {
   const kind = req.query.kind === 'purchase' ? 'purchase' : 'sale';
-  let sql = `
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND i.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+
+  let sql = \`
     SELECT i.*, c.name AS contact_name, c.email AS contact_email,
       ROUND(COALESCE(i.total_base, i.total / i.fx_rate),2) AS total_base_eff,
       ROUND(COALESCE((SELECT SUM(base_amount) FROM payments p WHERE p.invoice_id = i.id),0),2) AS paid_base
     FROM invoices i LEFT JOIN contacts c ON c.id = i.contact_id
-    WHERE i.company_id = ? AND i.kind = ?`;
-  const params = [req.user.company_id, kind];
+    WHERE i.company_id = ? \${bSql} AND i.kind = ?\`;
+  const params = [req.user.company_id, ...bP, kind];
   if (req.query.from) { sql += ' AND i.date >= ?'; params.push(req.query.from); }
   if (req.query.to) { sql += ' AND i.date <= ?'; params.push(req.query.to); }
   if (req.query.contact_id) { sql += ' AND i.contact_id = ?'; params.push(Number(req.query.contact_id)); }
@@ -33,6 +38,11 @@ router.get('/invoices/:id', (req, res) => {
 function buildInvoice(req, res, kind) {
   const { contact_id, date, due_date, currency, fx_rate, tax_rate, memo, items, status } = req.body || {};
   const cid = req.user.company_id;
+
+  const { getEffectiveBranchId } = require('../lib');
+  const bid = getEffectiveBranchId(req);
+  if (bid === null) return res.status(400).json({ error: 'no_branch_selected' });
+
   if (!date || !Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'missing_fields' });
   const cur = currency || 'USD';
   const rate = fx_rate ? Number(fx_rate) : rateFor(cid, cur);
@@ -61,9 +71,9 @@ function buildInvoice(req, res, kind) {
   const total = r2(totalBase * rate);
   const number = nextNumber(cid, kind === 'sale' ? 'INV' : 'BILL');
 
-  const invId = db.prepare(`INSERT INTO invoices (company_id, kind, number, contact_id, date, due_date, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
-    .run(cid, kind, number, contact_id || null, date, due_date || null, cur, rate, subtotal, taxAmount, total, subtotalBase, taxBase, totalBase, 'draft', memo || '')
+  const invId = db.prepare(\`INSERT INTO invoices (company_id, branch_id, kind, number, contact_id, date, due_date, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)\`)
+    .run(cid, bid, kind, number, contact_id || null, date, due_date || null, cur, rate, subtotal, taxAmount, total, subtotalBase, taxBase, totalBase, 'draft', memo || '')
     .lastInsertRowid;
   const insItem = db.prepare('INSERT INTO invoice_items (invoice_id, product_id, description, qty, unit_price, amount, base_amount, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?,?)');
   for (const r of rows) insItem.run(invId, r.product_id, r.description, r.qty, r.unit_price, r.amount, r.base_amount, r.currency, r.fx_rate);
@@ -192,14 +202,19 @@ router.post('/invoices/:id/return', (req, res) => {
 
 /* ============ Expenses ============ */
 router.get('/expenses', (req, res) => {
-  let sql = `
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND e.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+
+  let sql = \`
     SELECT e.*, a.name AS account_name, c.name AS contact_name, pa.name AS payment_account_name
     FROM expenses e
     LEFT JOIN accounts a ON a.id = e.account_id
     LEFT JOIN contacts c ON c.id = e.contact_id
     LEFT JOIN accounts pa ON pa.id = e.payment_account_id
-    WHERE e.company_id = ?`;
-  const params = [req.user.company_id];
+    WHERE e.company_id = ? \${bSql}\`;
+  const params = [req.user.company_id, ...bP];
   if (req.query.from) { sql += ' AND e.date >= ?'; params.push(req.query.from); }
   if (req.query.to) { sql += ' AND e.date <= ?'; params.push(req.query.to); }
   sql += ' ORDER BY e.date DESC, e.id DESC';
@@ -210,15 +225,20 @@ router.get('/expenses', (req, res) => {
 router.post('/expenses', (req, res) => {
   const { date, account_id, contact_id, currency, fx_rate, amount, memo, payment_account_id } = req.body || {};
   const cid = req.user.company_id;
+
+  const { getEffectiveBranchId } = require('../lib');
+  const bid = getEffectiveBranchId(req);
+  if (bid === null) return res.status(400).json({ error: 'no_branch_selected' });
+
   if (!date || !account_id || !amount) return res.status(400).json({ error: 'missing_fields' });
   const acc = db.prepare('SELECT id FROM accounts WHERE id = ? AND company_id = ?').get(account_id, cid);
   if (!acc) return res.status(400).json({ error: 'invalid_account' });
   const cur = currency || 'USD';
   const rate = fx_rate ? Number(fx_rate) : rateFor(cid, cur);
   const base = r2(Number(amount) / rate);
-  const info = db.prepare(`INSERT INTO expenses (company_id, date, account_id, contact_id, currency, fx_rate, amount, base_amount, memo, payment_account_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?)`)
-    .run(cid, date, account_id, contact_id || null, cur, rate, Number(amount), base, memo || '', payment_account_id || null);
+  const info = db.prepare(\`INSERT INTO expenses (company_id, branch_id, date, account_id, contact_id, currency, fx_rate, amount, base_amount, memo, payment_account_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)\`)
+    .run(cid, bid, date, account_id, contact_id || null, cur, rate, Number(amount), base, memo || '', payment_account_id || null);
 
   // post: Dr expense account, Cr cash (or specified payment account / AP fallback)
   const defaultCash = db.prepare("SELECT id FROM accounts WHERE company_id=? AND code LIKE '10%' ORDER BY code LIMIT 1").get(cid)?.id

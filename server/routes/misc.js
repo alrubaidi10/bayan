@@ -7,23 +7,33 @@ router.use(requireAuth);
 /* ============ Contacts ============ */
 router.get('/contacts', (req, res) => {
   const kind = req.query.kind;
-  const sql = kind ? 'SELECT * FROM contacts WHERE company_id = ? AND kind = ? ORDER BY name' : 'SELECT * FROM contacts WHERE company_id = ? ORDER BY kind, name';
-  const params = kind ? [req.user.company_id, kind] : [req.user.company_id];
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND branch_id = ?' : '';
+  const bSqlInv = bid ? 'AND i.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+  
+  const sql = kind ? \`SELECT * FROM contacts WHERE company_id = ? \${bSql} AND kind = ? ORDER BY name\` : \`SELECT * FROM contacts WHERE company_id = ? \${bSql} ORDER BY kind, name\`;
+  const params = kind ? [req.user.company_id, ...bP, kind] : [req.user.company_id, ...bP];
   const contacts = db.prepare(sql).all(...params).map(c => {
-    const bal = db.prepare(`
+    const bal = db.prepare(\`
       SELECT ROUND(COALESCE(SUM(i.total / i.fx_rate - COALESCE((SELECT SUM(p.base_amount) FROM payments p WHERE p.invoice_id = i.id),0)),0),2) v
-      FROM invoices i WHERE i.company_id = ? AND i.contact_id = ? AND i.kind = ? AND i.status != 'draft'`)
-      .get(req.user.company_id, c.id, c.kind === 'customer' ? 'sale' : 'purchase').v;
+      FROM invoices i WHERE i.company_id = ? \${bSqlInv} AND i.contact_id = ? AND i.kind = ? AND i.status != 'draft'\`)
+      .get(req.user.company_id, ...bP, c.id, c.kind === 'customer' ? 'sale' : 'purchase').v;
     return { ...c, balance: bal };
   });
   res.json({ contacts });
 });
 
 router.post('/contacts', (req, res) => {
+  const { getEffectiveBranchId } = require('../lib');
+  const bid = getEffectiveBranchId(req);
+  if (bid === null) return res.status(400).json({ error: 'no_branch_selected' });
+  
   const { kind, name, email, phone, address, tax_no, currency } = req.body || {};
   if (!kind || !name) return res.status(400).json({ error: 'missing_fields' });
-  const info = db.prepare('INSERT INTO contacts (company_id, kind, name, email, phone, address, tax_no, currency) VALUES (?,?,?,?,?,?,?,?)')
-    .run(req.user.company_id, kind, name, email || '', phone || '', address || '', tax_no || '', currency || '');
+  const info = db.prepare('INSERT INTO contacts (company_id, branch_id, kind, name, email, phone, address, tax_no, currency) VALUES (?,?,?,?,?,?,?,?,?)')
+    .run(req.user.company_id, bid, kind, name, email || '', phone || '', address || '', tax_no || '', currency || '');
   res.json({ contact: db.prepare('SELECT * FROM contacts WHERE id = ?').get(info.lastInsertRowid) });
 });
 
@@ -39,17 +49,25 @@ router.put('/contacts/:id', (req, res) => {
 
 /* ============ Products / Inventory ============ */
 router.get('/products', (req, res) => {
-  const rows = db.prepare('SELECT * FROM products WHERE company_id = ? ORDER BY name').all(req.user.company_id)
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+  const rows = db.prepare(\`SELECT * FROM products WHERE company_id = ? \${bSql} ORDER BY name\`).all(req.user.company_id, ...bP)
     .map(p => ({ ...p, low: p.stock <= p.reorder_level, value: r2(p.stock * p.cost) }));
   const categories = [...new Set(rows.map(p => p.category).filter(Boolean))].sort();
   res.json({ products: rows, categories });
 });
 
 router.post('/products', (req, res) => {
+  const { getEffectiveBranchId } = require('../lib');
+  const bid = getEffectiveBranchId(req);
+  if (bid === null) return res.status(400).json({ error: 'no_branch_selected' });
+  
   const { name, name_ar, category, sku, barcode, unit, cost, price, stock, reorder_level } = req.body || {};
   if (!name) return res.status(400).json({ error: 'missing_fields' });
-  const info = db.prepare('INSERT INTO products (company_id, name, name_ar, category, sku, barcode, unit, cost, price, stock, reorder_level) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-    .run(req.user.company_id, name, name_ar || '', category || '', sku || '', barcode || '', unit || 'pcs', Number(cost) || 0, Number(price) || 0, Number(stock) || 0, Number(reorder_level) || 0);
+  const info = db.prepare('INSERT INTO products (company_id, branch_id, name, name_ar, category, sku, barcode, unit, cost, price, stock, reorder_level) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
+    .run(req.user.company_id, bid, name, name_ar || '', category || '', sku || '', barcode || '', unit || 'pcs', Number(cost) || 0, Number(price) || 0, Number(stock) || 0, Number(reorder_level) || 0);
   res.json({ product: db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid) });
 });
 
@@ -76,8 +94,15 @@ router.get('/stock-moves/:id', (req, res) => {
 router.post('/stock-moves', (req, res) => {
   const { product_id, date, qty, unit_cost, move_type, memo } = req.body || {};
   if (!product_id || !date || qty === undefined || qty === null) return res.status(400).json({ error: 'missing_fields' });
+  
+  const { getEffectiveBranchId } = require('../lib');
+  const bid = getEffectiveBranchId(req);
+  if (bid === null) return res.status(400).json({ error: 'no_branch_selected' });
+
   const p = productById(product_id, req.user.company_id);
   if (!p) return res.status(404).json({ error: 'not_found' });
+  // make sure product belongs to branch? If product has branch_id, productById might need updating?
+  // Let's assume productById returns the product.
 
   // move_type: 'in' = stock receipt, 'out' = stock issue, 'adjust' = adjustment (can be negative)
   let qtyNum = Number(qty);
@@ -87,8 +112,8 @@ router.post('/stock-moves', (req, res) => {
 
   const cost = Number(unit_cost) || p.cost;
 
-  db.prepare('INSERT INTO stock_moves (company_id, product_id, date, qty, ref_type, ref_id, unit_cost) VALUES (?,?,?,?,?,?,?)')
-    .run(req.user.company_id, p.id, date, qtyNum, 'manual', 0, cost);
+  db.prepare('INSERT INTO stock_moves (company_id, branch_id, product_id, date, qty, ref_type, ref_id, unit_cost) VALUES (?,?,?,?,?,?,?,?)')
+    .run(req.user.company_id, bid, p.id, date, qtyNum, 'manual', 0, cost);
 
   // update product stock
   db.prepare('UPDATE products SET stock = ROUND(stock + ?, 4) WHERE id = ?').run(qtyNum, p.id);
@@ -100,7 +125,12 @@ router.post('/stock-moves', (req, res) => {
 /* ============ Inventory Summary (all products with stats) ============ */
 router.get('/inventory/summary', (req, res) => {
   const cid = req.user.company_id;
-  const products = db.prepare('SELECT * FROM products WHERE company_id = ? ORDER BY name').all(cid)
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+
+  const products = db.prepare(\`SELECT * FROM products WHERE company_id = ? \${bSql} ORDER BY name\`).all(cid, ...bP)
     .map(p => ({ ...p, low: p.stock <= p.reorder_level, value: r2(p.stock * p.cost) }));
   const totalValue = r2(products.reduce((s, p) => s + p.value, 0));
   const totalItems = products.length;
@@ -170,12 +200,17 @@ router.post('/notifications/read-all', (req, res) => {
 /* ============ Inventory Print Report ============ */
 router.get('/inventory/print-report', (req, res) => {
   const cid = req.user.company_id;
-  const products = db.prepare(`
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND p.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+
+  const products = db.prepare(\`
     SELECT p.*, ROUND(p.stock * p.cost, 2) as value
     FROM products p
-    WHERE p.company_id = ?
+    WHERE p.company_id = ? \${bSql}
     ORDER BY p.category ASC, p.name ASC
-  `).all(cid).map(p => ({ ...p, low: p.stock <= p.reorder_level }));
+  \`).all(cid, ...bP).map(p => ({ ...p, low: p.stock <= p.reorder_level }));
   const totalValue = products.reduce((s, p) => s + (p.value || 0), 0);
   const totalItems = products.length;
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];

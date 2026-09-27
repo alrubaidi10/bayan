@@ -34,6 +34,8 @@ function requireAuth(req, res, next) {
     }
   }
   req.user = s;
+  const userRow = db.prepare('SELECT branch_id FROM users WHERE id = ?').get(s.user_id);
+  req.user.branch_id = userRow ? userRow.branch_id : null;
   next();
 }
 
@@ -170,8 +172,24 @@ function nextNumber(companyId, prefix) {
   return prefix + '-' + String(n + 1).padStart(4, '0');
 }
 
+function getBranchCtx(req) {
+  const userBid = req.user.branch_id;
+  if (userBid) return { bid: Number(userBid) };
+  const headerBid = req.headers['x-branch-id'];
+  const bid = headerBid ? (Number(headerBid) || null) : null;
+  return { bid };
+}
+
+function getEffectiveBranchId(req) {
+  const { bid } = getBranchCtx(req);
+  if (bid) return bid;
+  const branch = db.prepare('SELECT id FROM branches WHERE company_id = ? ORDER BY id LIMIT 1').get(req.user.company_id);
+  return branch ? branch.id : null;
+}
+
 module.exports = {
   db, hashPassword, verifyPassword, newToken, requireAuth, daysLeft, todayISO, r2,
   accountById, productById, companyById, rateFor, invoicePaidBase, baseTotal,
   createEntry, postInvoice, recordPayment, accountByIdByCode, nextNumber,
+  getBranchCtx, getEffectiveBranchId
 };

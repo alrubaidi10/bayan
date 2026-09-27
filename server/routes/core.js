@@ -99,15 +99,20 @@ router.get('/ledger', (req, res) => {
 
 /* ================= Trial Balance ================= */
 router.get('/trial-balance', (req, res) => {
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND je.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+  
   const rows = db.prepare(`
     SELECT a.id, a.code, a.name, a.name_ar, a.type,
       ROUND(COALESCE(SUM(jl.debit),0),2) AS debit,
       ROUND(COALESCE(SUM(jl.credit),0),2) AS credit
     FROM accounts a
     LEFT JOIN journal_lines jl ON jl.account_id = a.id
-    LEFT JOIN journal_entries je ON je.id = jl.entry_id AND je.company_id = ?
+    LEFT JOIN journal_entries je ON je.id = jl.entry_id AND je.company_id = ? ${bSql}
     WHERE a.company_id = ?
-    GROUP BY a.id ORDER BY a.code`).all(req.user.company_id, req.user.company_id);
+    GROUP BY a.id ORDER BY a.code`).all(req.user.company_id, ...bP, req.user.company_id);
   const totals = { debit: 0, credit: 0 };
   for (const r of rows) { totals.debit += r.debit; totals.credit += r.credit; }
   res.json({ rows, totals: { debit: r2(totals.debit), credit: r2(totals.credit) } });
@@ -116,8 +121,13 @@ router.get('/trial-balance', (req, res) => {
 /* ================= P&L ================= */
 router.get('/pnl', (req, res) => {
   const { from, to } = req.query;
-  let base = 'SELECT je.company_id, jl.account_id, a.code, a.name, a.name_ar, a.type, SUM(jl.debit) d, SUM(jl.credit) c FROM journal_lines jl JOIN journal_entries je ON je.id=jl.entry_id JOIN accounts a ON a.id=jl.account_id WHERE je.company_id = ?';
-  const params = [req.user.company_id];
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND je.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+  
+  let base = \`SELECT je.company_id, jl.account_id, a.code, a.name, a.name_ar, a.type, SUM(jl.debit) d, SUM(jl.credit) c FROM journal_lines jl JOIN journal_entries je ON je.id=jl.entry_id JOIN accounts a ON a.id=jl.account_id WHERE je.company_id = ? \${bSql}\`;
+  const params = [req.user.company_id, ...bP];
   if (from) { base += ' AND je.date >= ?'; params.push(from); }
   if (to) { base += ' AND je.date <= ?'; params.push(to); }
   base += ' GROUP BY jl.account_id';
@@ -131,9 +141,14 @@ router.get('/pnl', (req, res) => {
 
 /* ================= Balance Sheet ================= */
 router.get('/balance-sheet', (req, res) => {
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND je.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
+  
   const asof = req.query.asof || new Date().toISOString().slice(0, 10);
-  const base = 'SELECT jl.account_id, a.code, a.name, a.name_ar, a.type, SUM(jl.debit) d, SUM(jl.credit) c FROM journal_lines jl JOIN journal_entries je ON je.id=jl.entry_id JOIN accounts a ON a.id=jl.account_id WHERE je.company_id = ? AND je.date <= ? GROUP BY jl.account_id';
-  const rows = db.prepare(base).all(req.user.company_id, asof);
+  const base = \`SELECT jl.account_id, a.code, a.name, a.name_ar, a.type, SUM(jl.debit) d, SUM(jl.credit) c FROM journal_lines jl JOIN journal_entries je ON je.id=jl.entry_id JOIN accounts a ON a.id=jl.account_id WHERE je.company_id = ? \${bSql} AND je.date <= ? GROUP BY jl.account_id\`;
+  const rows = db.prepare(base).all(req.user.company_id, ...bP, asof);
   const byType = (t) => rows.filter(r => r.type === t)
     .map(r => ({ code: r.code, name: r.name, name_ar: r.name_ar, amount: r2(t === 'asset' || t === 'expense' ? r.d - r.c : r.c - r.d) }));
   const assets = byType('asset');
@@ -153,23 +168,31 @@ router.get('/balance-sheet', (req, res) => {
 /* ================= Dashboard ================= */
 router.get('/dashboard', (req, res) => {
   const cid = req.user.company_id;
-  const kpi = (sql, ...p) => db.prepare(sql).get(cid, ...p);
+  const { getBranchCtx } = require('../lib');
+  const { bid } = getBranchCtx(req);
+  const bSql = bid ? 'AND branch_id = ?' : '';
+  const bSqlInv = bid ? 'AND i.branch_id = ?' : '';
+  const bSqlJe = bid ? 'AND je.branch_id = ?' : '';
+  const bP = bid ? [bid] : [];
 
-  const revenue = kpi(`SELECT ROUND(COALESCE(SUM(COALESCE(subtotal_base, subtotal / fx_rate)),0),2) v FROM invoices WHERE company_id=? AND kind='sale' AND status != 'draft'`);
-  const expenses = kpi(`SELECT ROUND(COALESCE((
-      SELECT SUM(COALESCE(total_base, total / fx_rate)) FROM invoices WHERE company_id=? AND kind='purchase' AND status != 'draft'
-    ) + (SELECT SUM(base_amount) FROM expenses WHERE company_id=?),0),2) v`, cid);
-  const ar = kpi(`SELECT ROUND(COALESCE(SUM(total / fx_rate - COALESCE((SELECT SUM(base_amount) FROM payments p WHERE p.invoice_id = i.id),0)),0),2) v
-    FROM invoices i WHERE i.company_id=? AND i.kind='sale' AND i.status IN ('posted','paid') AND i.status != 'draft'`);
-  const ap = kpi(`SELECT ROUND(COALESCE(SUM(total / fx_rate - COALESCE((SELECT SUM(base_amount) FROM payments p WHERE p.invoice_id = i.id),0)),0),2) v
-    FROM invoices i WHERE i.company_id=? AND i.kind='purchase' AND i.status IN ('posted','paid')`);
-  const cash = kpi(`SELECT ROUND(COALESCE(SUM(jl.debit - jl.credit),0),2) v FROM journal_lines jl JOIN journal_entries je ON je.id=jl.entry_id JOIN accounts a ON a.id=jl.account_id
-    WHERE je.company_id=? AND a.code LIKE '10%'`);
-  const invValue = kpi(`SELECT ROUND(COALESCE(SUM(stock * cost),0),2) v FROM products WHERE company_id=?`);
-  const lowStock = db.prepare('SELECT COUNT(*) n FROM products WHERE company_id=? AND stock <= reorder_level').get(cid).n;
-  const custCount = db.prepare('SELECT COUNT(*) n FROM contacts WHERE company_id=? AND kind=?').get(cid, 'customer').n;
-  const supCount = db.prepare('SELECT COUNT(*) n FROM contacts WHERE company_id=? AND kind=?').get(cid, 'supplier').n;
-  const prodCount = db.prepare('SELECT COUNT(*) n FROM products WHERE company_id=?').get(cid).n;
+  const kpi = (sql, ...p) => db.prepare(sql).get(cid, ...p, ...bP);
+  const kpiWithP = (sql, p) => db.prepare(sql).get(cid, ...p, ...bP);
+
+  const revenue = kpi(\`SELECT ROUND(COALESCE(SUM(COALESCE(subtotal_base, subtotal / fx_rate)),0),2) v FROM invoices WHERE company_id=? \${bSql} AND kind='sale' AND status != 'draft'\`);
+  const expenses = db.prepare(\`SELECT ROUND(COALESCE((
+      SELECT SUM(COALESCE(total_base, total / fx_rate)) FROM invoices WHERE company_id=? \${bSql} AND kind='purchase' AND status != 'draft'
+    ) + (SELECT SUM(base_amount) FROM expenses WHERE company_id=? \${bSql}),0),2) v\`).get(cid, ...bP, cid, ...bP);
+  const ar = kpi(\`SELECT ROUND(COALESCE(SUM(total / fx_rate - COALESCE((SELECT SUM(base_amount) FROM payments p WHERE p.invoice_id = i.id),0)),0),2) v
+    FROM invoices i WHERE i.company_id=? \${bSqlInv} AND i.kind='sale' AND i.status IN ('posted','paid') AND i.status != 'draft'\`);
+  const ap = kpi(\`SELECT ROUND(COALESCE(SUM(total / fx_rate - COALESCE((SELECT SUM(base_amount) FROM payments p WHERE p.invoice_id = i.id),0)),0),2) v
+    FROM invoices i WHERE i.company_id=? \${bSqlInv} AND i.kind='purchase' AND i.status IN ('posted','paid')\`);
+  const cash = kpi(\`SELECT ROUND(COALESCE(SUM(jl.debit - jl.credit),0),2) v FROM journal_lines jl JOIN journal_entries je ON je.id=jl.entry_id JOIN accounts a ON a.id=jl.account_id
+    WHERE je.company_id=? \${bSqlJe} AND a.code LIKE '10%'\`);
+  const invValue = kpi(\`SELECT ROUND(COALESCE(SUM(stock * cost),0),2) v FROM products WHERE company_id=? \${bSql}\`);
+  const lowStock = db.prepare(\`SELECT COUNT(*) n FROM products WHERE company_id=? \${bSql} AND stock <= reorder_level\`).get(cid, ...bP).n;
+  const custCount = db.prepare(\`SELECT COUNT(*) n FROM contacts WHERE company_id=? \${bSql} AND kind=?\`).get(cid, ...bP, 'customer').n;
+  const supCount = db.prepare(\`SELECT COUNT(*) n FROM contacts WHERE company_id=? \${bSql} AND kind=?\`).get(cid, ...bP, 'supplier').n;
+  const prodCount = db.prepare(\`SELECT COUNT(*) n FROM products WHERE company_id=? \${bSql}\`).get(cid, ...bP).n;
 
   // monthly revenue vs expenses for the last 6 months
   const months = [];
@@ -180,21 +203,21 @@ router.get('/dashboard', (req, res) => {
     const key = d.toISOString().slice(0, 7);
     months.push({ key, label: d.toLocaleDateString(lang, { month: 'short', year: '2-digit' }) });
   }
-  const revRows = db.prepare(`SELECT strftime('%Y-%m', date) m, SUM(COALESCE(subtotal_base, subtotal / fx_rate)) v FROM invoices WHERE company_id=? AND kind='sale' AND status != 'draft' GROUP BY m`).all(cid);
-  const expRows = db.prepare(`SELECT m, SUM(v) v FROM (
-      SELECT strftime('%Y-%m', date) m, SUM(COALESCE(total_base, total / fx_rate)) v FROM invoices WHERE company_id=? AND kind='purchase' AND status != 'draft' GROUP BY m
+  const revRows = db.prepare(\`SELECT strftime('%Y-%m', date) m, SUM(COALESCE(subtotal_base, subtotal / fx_rate)) v FROM invoices WHERE company_id=? \${bSql} AND kind='sale' AND status != 'draft' GROUP BY m\`).all(cid, ...bP);
+  const expRows = db.prepare(\`SELECT m, SUM(v) v FROM (
+      SELECT strftime('%Y-%m', date) m, SUM(COALESCE(total_base, total / fx_rate)) v FROM invoices WHERE company_id=? \${bSql} AND kind='purchase' AND status != 'draft' GROUP BY m
       UNION ALL
-      SELECT strftime('%Y-%m', date) m, SUM(base_amount) v FROM expenses WHERE company_id=? GROUP BY m) GROUP BY m`).all(cid, cid);
+      SELECT strftime('%Y-%m', date) m, SUM(base_amount) v FROM expenses WHERE company_id=? \${bSql} GROUP BY m) GROUP BY m\`).all(cid, ...bP, cid, ...bP);
   const revMap = Object.fromEntries(revRows.map(r => [r.m, r.v]));
   const expMap = Object.fromEntries(expRows.map(r => [r.m, r.v]));
   for (const m of months) { m.revenue = r2(revMap[m.key] || 0); m.expense = r2(expMap[m.key] || 0); }
 
-  const recentInvoices = db.prepare(`
+  const recentInvoices = db.prepare(\`
     SELECT i.number, i.date, i.total, i.fx_rate, i.status, i.currency, c.name AS contact_name, i.kind
     FROM invoices i LEFT JOIN contacts c ON c.id = i.contact_id
-    WHERE i.company_id = ? AND i.status != 'draft'
-    ORDER BY i.date DESC, i.id DESC LIMIT 8`).all(cid);
-  const lowStockProducts = db.prepare('SELECT * FROM products WHERE company_id=? AND stock <= reorder_level ORDER BY stock ASC LIMIT 6').all(cid);
+    WHERE i.company_id = ? \${bSqlInv} AND i.status != 'draft'
+    ORDER BY i.date DESC, i.id DESC LIMIT 8\`).all(cid, ...bP);
+  const lowStockProducts = db.prepare(\`SELECT * FROM products WHERE company_id=? \${bSql} AND stock <= reorder_level ORDER BY stock ASC LIMIT 6\`).all(cid, ...bP);
 
   res.json({
     kpis: { revenue: revenue.v, expenses: expenses.v, net: r2(revenue.v - expenses.v), ar: ar.v, ap: ap.v, cash: cash.v, invValue: invValue.v, lowStock, custCount, supCount, prodCount },

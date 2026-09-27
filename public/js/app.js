@@ -56,9 +56,38 @@ function showBlocked(code) {
 }
 window.showBlocked = showBlocked;
 
+/* ============ Role-Based Access Control ============
+ * Pages each role is allowed to access.
+ * 'admin' role = company admin (full access, manages users)
+ * superadmin flag = platform admin (additional admin panel)
+ */
+const ROLE_PAGES = {
+  admin:      ['dashboard','debts','accounts','journal','ledger','trial','pnl','balance-sheet',
+               'invoices','bills','customers','suppliers','expenses','quotes',
+               'inventory','inventory-print','transfers','reports','settings','users'],
+  manager:    ['dashboard','debts','accounts','journal','ledger','trial','pnl','balance-sheet',
+               'invoices','bills','customers','suppliers','expenses','quotes',
+               'inventory','inventory-print','transfers','reports'],
+  accountant: ['dashboard','accounts','journal','ledger','trial','pnl','balance-sheet',
+               'invoices','bills','expenses','debts','quotes','reports'],
+  staff:      ['dashboard','invoices','bills','customers','suppliers','expenses','quotes',
+               'inventory','transfers'],
+  cashier:    ['dashboard','invoices','customers','inventory'],
+};
+
+function canAccess(page) {
+  const role = App.me?.user?.role || 'staff';
+  if (App.me?.user?.is_superadmin) return true;
+  const allowed = ROLE_PAGES[role] || ROLE_PAGES.staff;
+  return allowed.includes(page);
+}
+
 function renderShell() {
   const isSuper = !!App.me.user.is_superadmin;
-  const groups = [
+  const isAdmin = App.me.user.role === 'admin' || isSuper;
+
+  // Full nav definition — filtered by role below
+  const ALL_GROUPS = [
     { label: '', items: [
       ['dashboard', 'nav_dashboard', 'dashboard'],
       ['debts', 'nav_debts', 'wallet'],
@@ -85,13 +114,22 @@ function renderShell() {
       ['inventory', 'nav_products', 'box'],
       ['inventory-print', 'nav_inv_print', 'file'],
       ['transfers', 'nav_transfers', 'layers'],
-    ] },
+    ]},
     { label: 'nav_reports', items: [['reports', 'nav_reports', 'bar']] },
     { label: '', items: [
       ['settings', 'nav_settings', 'gear'],
+      ...(isAdmin ? [['users', 'usr_title', 'users']] : []),
       ...(isSuper ? [['admin', 'nav_admin', 'gear']] : []),
     ]},
   ];
+
+  // Filter each group's items by role
+  const groups = ALL_GROUPS.map(g => ({
+    ...g,
+    items: g.items.filter(([path]) => canAccess(path)),
+  })).filter(g => g.items.length > 0);
+
+
   const initials = (App.me.user.name || 'U').trim().charAt(0).toUpperCase();
   const sub = App.me.company;
   const days = sub.days_left;
@@ -116,7 +154,13 @@ function renderShell() {
       <div class="sidebar-foot">
         <div class="user-card">
           <div class="avatar">${esc(initials)}</div>
-          <div><b>${esc(App.me.user.name)}</b><span>${esc(App.me.company.name)}</span></div>
+          <div>
+            <b>${esc(App.me.user.name)}</b>
+            <span>${esc(App.me.company.name)}</span>
+            <span class="badge ${{'admin':'red','manager':'primary','accountant':'amber','staff':'green','cashier':'gray'}[App.me.user.role]||'gray'}" style="font-size:.72rem;margin-top:2px;display:inline-block">
+              ${esc(t('role_' + (App.me.user.role || 'staff')))}
+            </span>
+          </div>
         </div>
         <button class="logout-btn-wide" id="logout-btn">${icon('logout')} ${esc(t('logout'))}</button>
       </div>
@@ -237,6 +281,7 @@ const PAGES = {
   reports: ReportsPage,
   quotes: QuotesPage,
   settings: SettingsPage,
+  users: UsersPage,
   admin: AdminPage,
 };
 const PAGE_CRUMBS = {
@@ -245,18 +290,24 @@ const PAGE_CRUMBS = {
   invoices: 'nav_sales', quotes: 'nav_sales', bills: 'nav_purchases',
   customers: 'nav_sales', suppliers: 'nav_purchases', expenses: 'nav_purchases',
   inventory: 'nav_inventory', 'inventory-print': 'nav_inventory', transfers: 'nav_inventory',
-  reports: 'nav_reports', debts: '', settings: '', admin: '',
+  reports: 'nav_reports', debts: '', settings: '', admin: '', users: '',
 };
 
 function route() {
   if (!getToken()) return showLogin();
   const hash = location.hash.replace(/^#\//, '');
   const [path, param] = hash.split('/');
-  // guard: admin panel is only for the platform admin
+
+  // Guard: platform admin panel only for superadmin
   if (path === 'admin' && !App.me.user.is_superadmin) {
-    location.hash = '#/dashboard';
-    return;
+    location.hash = '#/dashboard'; return;
   }
+  // Guard: role-based access — redirect to dashboard if not allowed
+  if (path && path !== 'dashboard' && PAGES[path] && !canAccess(path)) {
+    toast(t('err_forbidden'), 'err');
+    location.hash = '#/dashboard'; return;
+  }
+
   const entry = PAGES[path] || PAGES.dashboard;
   const page = () => (typeof entry === 'function' ? entry() : entry);
   const navLinks = document.querySelectorAll('#nav a');

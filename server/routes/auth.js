@@ -17,10 +17,9 @@ function checkCompanyStatus(res, company, user) {
 }
 function issueSession(user, res) {
   const token = newToken();
-  // 3650 days session token (10 years) so clients do not expire prematurely
   db.prepare('INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)')
     .run(token, user.id, new Date(Date.now() + 3650 * 864e5).toISOString());
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, company_id: user.company_id, is_superadmin: user.is_superadmin } });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role || 'admin', company_id: user.company_id, is_superadmin: user.is_superadmin } });
 }
 
 /* Public self-registration, Google sign-in and the demo button were removed from the UI.
@@ -41,7 +40,7 @@ router.post('/login', (req, res) => {
   issueSession(user, res);
 });
 
-/* Demo login endpoint — used for testing only (demo@mizan.local / demo1234). */
+/* Demo login endpoint */
 router.post('/demo', (req, res) => {
   const { user, company } = ensureDemoAccount();
   issueSession(user, res);
@@ -54,10 +53,17 @@ router.post('/logout', requireAuth, (req, res) => {
 });
 
 router.get('/me', requireAuth, (req, res) => {
+  const user = db.prepare('SELECT * FROM users WHERE id = ?').get(req.user.user_id);
   const unread = db.prepare('SELECT COUNT(*) n FROM notifications WHERE company_id = ? AND read = 0')
     .get(req.user.company_id).n;
   res.json({
-    user: { id: req.user.user_id, name: req.user.user_name, email: req.user.email, is_superadmin: !!req.user.is_superadmin },
+    user: {
+      id: req.user.user_id,
+      name: req.user.user_name,
+      email: req.user.email,
+      role: user ? user.role : 'admin',
+      is_superadmin: !!req.user.is_superadmin,
+    },
     company: {
       id: req.user.company_id, name: req.user.company_name,
       base_currency: req.user.base_currency,
@@ -69,6 +75,7 @@ router.get('/me', requireAuth, (req, res) => {
     unread_notifications: unread,
   });
 });
+
 
 /** Customer self-service: change own name / login email (username) / password. */
 router.put('/account', requireAuth, (req, res) => {

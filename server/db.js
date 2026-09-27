@@ -254,6 +254,10 @@ ensureColumn('users', 'is_superadmin', "is_superadmin INTEGER NOT NULL DEFAULT 0
 ensureColumn('contacts', 'currency', "currency TEXT NOT NULL DEFAULT ''");
 ensureColumn('products', 'category', "category TEXT NOT NULL DEFAULT ''");
 ensureColumn('products', 'barcode', "barcode TEXT NOT NULL DEFAULT ''");
+/* Backfill: users with role='staff' keep it; users with old role='admin' stay as 'admin' */
+/* New valid roles: admin | manager | accountant | staff | cashier */
+db.exec(`UPDATE users SET role = 'admin' WHERE role NOT IN ('admin','manager','accountant','staff','cashier')`);
+
 ensureColumn('invoice_items', 'currency', "currency TEXT NOT NULL DEFAULT ''");
 ensureColumn('invoice_items', 'fx_rate', "fx_rate REAL NOT NULL DEFAULT 1");
 ensureColumn('invoices', 'subtotal_base', "subtotal_base REAL NOT NULL DEFAULT 0");

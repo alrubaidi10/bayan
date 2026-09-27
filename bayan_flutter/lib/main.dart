@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/theme/app_theme.dart';
-import 'features/dashboard/presentation/dashboard_screen.dart';
+import 'features/auth/presentation/login_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +14,7 @@ class BayanApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'بيان ERP - Bayan ERP',
+      title: 'بيان BAYAN ERP - نظام محاسبي متكامل',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       localizationsDelegates: const [
@@ -27,7 +27,7 @@ class BayanApp extends StatelessWidget {
         Locale('en', ''),
       ],
       locale: const Locale('ar', ''),
-      home: const DashboardScreen(),
+      home: const LoginScreen(),
     );
   }
 }

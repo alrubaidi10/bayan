@@ -1,8 +1,25 @@
 import 'package:flutter/material.dart';
+import '../../auth/presentation/login_screen.dart';
+import '../../sales/presentation/sales_screen.dart';
+import '../../purchases/presentation/purchases_screen.dart';
+import '../../customers/presentation/customers_screen.dart';
+import '../../journal/presentation/journal_screen.dart';
+import '../../chart_of_accounts/presentation/chart_of_accounts_screen.dart';
+import '../../inventory/presentation/inventory_screen.dart';
+import '../../banks/presentation/banks_screen.dart';
+import '../../reports/presentation/reports_screen.dart';
 import '../../subscriptions/presentation/subscriptions_admin_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({Key? key}) : super(key: key);
+  final String userEmail;
+  final bool isAdminOwner;
+
+  const DashboardScreen({
+    Key? key,
+    this.userEmail = 'admin@admin.com',
+    this.isAdminOwner = true,
+  }) : super(key: key);
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -26,112 +43,140 @@ class _DashboardScreenState extends State<DashboardScreen> {
     {'title': 'إعدادات المنشأة والنظام', 'icon': Icons.settings_outlined, 'tag': 'settings'},
   ];
 
+  Widget _buildSelectedScreenContent() {
+    switch (_selectedNavIndex) {
+      case 0:
+        return _buildDashboardOverviewBody();
+      case 1:
+        return const SalesScreen();
+      case 2:
+        return const PurchasesScreen();
+      case 3:
+        return const CustomersScreen();
+      case 4:
+        return const JournalScreen();
+      case 5:
+        return const ChartOfAccountsScreen();
+      case 6:
+        return const InventoryScreen();
+      case 7:
+        return const BanksScreen();
+      case 8:
+        return const ReportsScreen();
+      case 9:
+        return const SubscriptionsAdminScreen();
+      case 10:
+        return const SettingsScreen();
+      default:
+        return _buildDashboardOverviewBody();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       key: _scaffoldKey,
-      backgroundColor: const Color(0xFF0F172A), // Slate 900 Canvas
+      backgroundColor: const Color(0xFF0F172A),
       drawer: _buildErpSidebarDrawer(context),
       appBar: _buildErpTopAppBar(context),
       body: Directionality(
         textDirection: TextDirection.rtl,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Executive Fiscal Banner
-              _buildFiscalYearBanner(),
-              const SizedBox(height: 20),
-
-              // 2. Top 4 Executive KPI Cards
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  int crossCount = constraints.maxWidth > 900 ? 4 : (constraints.maxWidth > 600 ? 2 : 1);
-                  return GridView.count(
-                    crossAxisCount: crossCount,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    childAspectRatio: constraints.maxWidth > 900 ? 1.6 : 2.1,
-                    children: [
-                      _buildKpiMetricCard(
-                        title: 'إجمالي مبيعات الفترة',
-                        value: '\$148,250.00',
-                        trend: '+14.5% عن الشهر السابق',
-                        isPositiveTrend: true,
-                        icon: Icons.trending_up,
-                        accentColor: const Color(0xFF10B981),
-                      ),
-                      _buildKpiMetricCard(
-                        title: 'إجمالي المشتريات والمصروفات',
-                        value: '\$42,100.00',
-                        trend: '-2.4% انخفاض النفقات',
-                        isPositiveTrend: true,
-                        icon: Icons.trending_down,
-                        accentColor: const Color(0xFFEF4444),
-                      ),
-                      _buildKpiMetricCard(
-                        title: 'صافي الأرباح التشغيلية',
-                        value: '\$106,150.00',
-                        trend: 'هامش أرباح 71.6%',
-                        isPositiveTrend: true,
-                        icon: Icons.account_balance_wallet_outlined,
-                        accentColor: const Color(0xFF2563EB),
-                      ),
-                      _buildKpiMetricCard(
-                        title: 'السيولة المتوفرة بالخزينة',
-                        value: '\$95,400.00',
-                        trend: 'الصناديق والبنك الأهلي',
-                        isPositiveTrend: true,
-                        icon: Icons.savings_outlined,
-                        accentColor: const Color(0xFFF59E0B),
-                      ),
-                    ],
-                  );
-                },
-              ),
-              const SizedBox(height: 24),
-
-              // 3. Quick Action Toolbar (أزرار الإجراءات السريعة المحاسبية)
-              _buildQuickAccountingActions(context),
-              const SizedBox(height: 24),
-
-              // 4. Financial Analytics Visual & Recent Entries Grid
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth > 1000) {
-                    return Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(flex: 3, child: _buildRecentJournalEntriesTable()),
-                        const SizedBox(width: 20),
-                        Expanded(flex: 2, child: _buildAccountsBreakdownWidget()),
-                      ],
-                    );
-                  } else {
-                    return Column(
-                      children: [
-                        _buildRecentJournalEntriesTable(),
-                        const SizedBox(height: 20),
-                        _buildAccountsBreakdownWidget(),
-                      ],
-                    );
-                  }
-                },
-              ),
-            ],
-          ),
-        ),
+        child: _buildSelectedScreenContent(),
       ),
     );
   }
 
-  // === ERP Top Navigation Bar ===
+  Widget _buildDashboardOverviewBody() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildFiscalYearBanner(),
+          const SizedBox(height: 20),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              int crossCount = constraints.maxWidth > 900 ? 4 : (constraints.maxWidth > 600 ? 2 : 1);
+              return GridView.count(
+                crossAxisCount: crossCount,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                childAspectRatio: constraints.maxWidth > 900 ? 1.6 : 2.1,
+                children: [
+                  _buildKpiMetricCard(
+                    title: 'إجمالي مبيعات الفترة',
+                    value: '\$148,250.00',
+                    trend: '+14.5% عن الشهر السابق',
+                    isPositiveTrend: true,
+                    icon: Icons.trending_up,
+                    accentColor: const Color(0xFF10B981),
+                  ),
+                  _buildKpiMetricCard(
+                    title: 'إجمالي المشتريات والمصروفات',
+                    value: '\$42,100.00',
+                    trend: '-2.4% انخفاض النفقات',
+                    isPositiveTrend: true,
+                    icon: Icons.trending_down,
+                    accentColor: const Color(0xFFEF4444),
+                  ),
+                  _buildKpiMetricCard(
+                    title: 'صافي الأرباح التشغيلية',
+                    value: '\$106,150.00',
+                    trend: 'هامش أرباح 71.6%',
+                    isPositiveTrend: true,
+                    icon: Icons.account_balance_wallet_outlined,
+                    accentColor: const Color(0xFF2563EB),
+                  ),
+                  _buildKpiMetricCard(
+                    title: 'السيولة المتوفرة بالخزينة',
+                    value: '\$95,400.00',
+                    trend: 'الصناديق والبنك الأهلي',
+                    isPositiveTrend: true,
+                    icon: Icons.savings_outlined,
+                    accentColor: const Color(0xFFF59E0B),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          _buildQuickAccountingActions(context),
+          const SizedBox(height: 24),
+
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth > 1000) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(flex: 3, child: _buildRecentJournalEntriesTable()),
+                    const SizedBox(width: 20),
+                    Expanded(flex: 2, child: _buildAccountsBreakdownWidget()),
+                  ],
+                );
+              } else {
+                return Column(
+                  children: [
+                    _buildRecentJournalEntriesTable(),
+                    const SizedBox(height: 20),
+                    _buildAccountsBreakdownWidget(),
+                  ],
+                );
+              }
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   PreferredSizeWidget _buildErpTopAppBar(BuildContext context) {
     return AppBar(
-      backgroundColor: const Color(0xFF1E293B), // Slate 800 Topbar
+      backgroundColor: const Color(0xFF1E293B),
       elevation: 1,
       leading: IconButton(
         icon: const Icon(Icons.menu, color: Colors.white),
@@ -148,15 +193,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: const Icon(Icons.account_balance, color: Colors.white, size: 20),
           ),
           const SizedBox(width: 10),
-          const Column(
+          Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'نظام بيان ERP المحاسبي الشامل',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
+                _navigationItems[_selectedNavIndex]['title'] as String,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
               ),
-              Text(
-                'Bayan Enterprise ERP v2.0 - القيد المزدوج',
+              const Text(
+                'بيان BAYAN ERP - نظام محاسبي متكامل',
                 style: TextStyle(fontSize: 11, color: Color(0xFF94A3B8)),
               ),
             ],
@@ -164,7 +209,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ],
       ),
       actions: [
-        // Offline / Sync Status Badge
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
           decoration: BoxDecoration(
@@ -183,25 +227,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ],
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 8),
         IconButton(
-          icon: const Icon(Icons.notifications_none, color: Colors.white),
-          onPressed: () {},
+          icon: const Icon(Icons.logout, color: Color(0xFFEF4444)),
+          tooltip: 'تسجيل الخروج',
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()),
+            );
+          },
         ),
         const SizedBox(width: 8),
-        Padding(
-          padding: const EdgeInsets.only(left: 12, right: 12),
-          child: CircleAvatar(
-            radius: 16,
-            backgroundColor: const Color(0xFF2563EB),
-            child: const Text('AD', style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
-          ),
-        ),
       ],
     );
   }
 
-  // === ERP Navigation Sidebar (Drawer) ===
   Widget _buildErpSidebarDrawer(BuildContext context) {
     return Directionality(
       textDirection: TextDirection.rtl,
@@ -209,30 +250,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: const Color(0xFF0F172A),
         child: Column(
           children: [
-            // Drawer Header
             UserAccountsDrawerHeader(
               decoration: const BoxDecoration(
                 color: Color(0xFF1E293B),
               ),
-              currentAccountPicture: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF2563EB),
-                  shape: BoxShape.circle,
+              currentAccountPicture: CircleAvatar(
+                backgroundColor: const Color(0xFF2563EB),
+                child: Image.asset(
+                  'assets/images/bayan_logo.png',
+                  height: 40,
+                  errorBuilder: (context, error, stackTrace) => const Icon(Icons.account_balance, color: Colors.white, size: 28),
                 ),
-                child: const Icon(Icons.business, color: Colors.white, size: 28),
               ),
-              accountName: const Text(
-                'مجموعة البيان العالمية ERP',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+              accountName: Text(
+                widget.isAdminOwner ? 'مالك التطبيق (الآدمن) 🛡️' : 'مستخدم بيان ERP',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
               ),
-              accountEmail: const Text(
-                'الترخيص: نشط (باقة المؤسسات - 365 يوم)',
-                style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+              accountEmail: Text(
+                widget.userEmail,
+                style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
               ),
             ),
 
-            // Navigation Items List
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -263,16 +302,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       onTap: () {
                         setState(() => _selectedNavIndex = index);
                         Navigator.pop(context);
-                        if (item['tag'] == 'subscriptions') {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (_) => const SubscriptionsAdminScreen()),
-                          );
-                        } else if (item['tag'] != 'dashboard') {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('تم فتح وحدة: ${item['title']}')),
-                          );
-                        }
                       },
                     ),
                   );
@@ -293,7 +322,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // === Fiscal Year & Organization Header Banner ===
   Widget _buildFiscalYearBanner() {
     return Container(
       width: double.infinity,
@@ -339,9 +367,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.picture_as_pdf_outlined, size: 18, color: Colors.white),
             label: const Text('تقرير ميزان المراجعة', style: TextStyle(color: Colors.white, fontSize: 13)),
             onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('جاري إصدار تقرير ميزان المراجعة 📄')),
-              );
+              setState(() => _selectedNavIndex = 8);
             },
           ),
         ],
@@ -349,7 +375,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // === Executive KPI Card Component ===
   Widget _buildKpiMetricCard({
     required String title,
     required String value,
@@ -406,14 +431,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // === Quick Accounting Action Toolbar ===
   Widget _buildQuickAccountingActions(BuildContext context) {
     final actions = [
-      {'title': 'فاتورة مبيعات', 'icon': Icons.add_shopping_cart, 'color': const Color(0xFF10B981)},
-      {'title': 'فاتورة مشتريات', 'icon': Icons.shopping_bag_outlined, 'color': const Color(0xFFEF4444)},
-      {'title': 'قيد يومية جديد', 'icon': Icons.post_add_outlined, 'color': const Color(0xFF2563EB)},
-      {'title': 'سند قبض نقدي', 'icon': Icons.call_received_outlined, 'color': const Color(0xFFF59E0B)},
-      {'title': 'سند صرف نقدي', 'icon': Icons.call_made_outlined, 'color': const Color(0xFF6366F1)},
+      {'title': 'فاتورة مبيعات', 'icon': Icons.add_shopping_cart, 'color': const Color(0xFF10B981), 'index': 1},
+      {'title': 'فاتورة مشتريات', 'icon': Icons.shopping_bag_outlined, 'color': const Color(0xFFEF4444), 'index': 2},
+      {'title': 'قيد يومية جديد', 'icon': Icons.post_add_outlined, 'color': const Color(0xFF2563EB), 'index': 4},
+      {'title': 'سند قبض / صرف', 'icon': Icons.call_received_outlined, 'color': const Color(0xFFF59E0B), 'index': 7},
+      {'title': 'إدارة الاشتراكات', 'icon': Icons.verified_user_outlined, 'color': const Color(0xFF6366F1), 'index': 9},
     ];
 
     return Column(
@@ -446,9 +470,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600),
                   ),
                   onPressed: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('تم إطلاق وحدة: ${act['title']}')),
-                    );
+                    setState(() => _selectedNavIndex = act['index'] as int);
                   },
                 ),
               );
@@ -459,7 +481,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // === Recent Journal Entries & Transactions Table ===
   Widget _buildRecentJournalEntriesTable() {
     final entries = [
       {'id': '#INV-1004', 'desc': 'فاتورة مبيعات آلتك الحديثة', 'account': '4011 - مبيعات البضاعة', 'amount': '+\$4,500.00', 'status': 'مكتمل 🟢', 'color': const Color(0xFF10B981)},
@@ -487,7 +508,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 style: TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold),
               ),
               TextButton(
-                onPressed: () {},
+                onPressed: () => setState(() => _selectedNavIndex = 4),
                 child: const Text('عرض كافة القيود (الدفتر العام)', style: TextStyle(color: Color(0xFF2563EB), fontSize: 12)),
               ),
             ],
@@ -560,7 +581,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // === Accounts & Assets Summary Breakdown Widget ===
   Widget _buildAccountsBreakdownWidget() {
     return Container(
       padding: const EdgeInsets.all(18),

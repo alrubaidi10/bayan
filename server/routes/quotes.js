@@ -17,10 +17,10 @@ router.get('/quotes', (req, res) => {
   const bSql = bid ? 'AND q.branch_id = ?' : '';
   const bP = bid ? [bid] : [];
 
-  const rows = db.prepare(\`
+  const rows = db.prepare(`
     SELECT q.*, c.name AS contact_name
     FROM quotes q LEFT JOIN contacts c ON c.id = q.contact_id
-    WHERE q.company_id = ? \${bSql} ORDER BY q.date DESC, q.id DESC\`).all(req.user.company_id, ...bP);
+    WHERE q.company_id = ? ${bSql} ORDER BY q.date DESC, q.id DESC`).all(req.user.company_id, ...bP);
   res.json({ quotes: rows });
 });
 
@@ -62,8 +62,8 @@ router.post('/quotes', (req, res) => {
   const subtotal = r2(subtotalBase * rate);
   const taxAmount = r2(taxBase * rate);
   const total = r2(totalBase * rate);
-  const id = db.prepare(\`INSERT INTO quotes (company_id, branch_id, number, contact_id, date, valid_until, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)\`)
+  const id = db.prepare(`INSERT INTO quotes (company_id, branch_id, number, contact_id, date, valid_until, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(cid, bid, qNumber(cid), contact_id || null, date, valid_until || null, cur, rate, subtotal, taxAmount, total, subtotalBase, taxBase, totalBase, 'draft', memo || '')
     .lastInsertRowid;
   const ins = db.prepare('INSERT INTO quote_items (quote_id, product_id, description, qty, unit_price, amount, base_amount, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?,?)');
@@ -92,8 +92,8 @@ router.post('/quotes/:id/convert', (req, res) => {
     if (row) { const m = row.number.match(/(\d+)$/); if (m) n = parseInt(m[1], 10); }
     return 'INV-' + String(n + 1).padStart(4, '0');
   })();
-  const invId = db.prepare(\`INSERT INTO invoices (company_id, branch_id, kind, number, contact_id, date, due_date, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)\`)
+  const invId = db.prepare(`INSERT INTO invoices (company_id, branch_id, kind, number, contact_id, date, due_date, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(req.user.company_id, q.branch_id, 'sale', invNo, q.contact_id, q.date, q.valid_until, q.currency, q.fx_rate,
       q.subtotal, q.tax_amount, q.total, q.subtotal_base || r2(q.subtotal / q.fx_rate), q.tax_base || r2(q.tax_amount / q.fx_rate), q.total_base || r2(q.total / q.fx_rate),
       'draft', 'From quote ' + q.number + (q.memo ? ' — ' + q.memo : ''))

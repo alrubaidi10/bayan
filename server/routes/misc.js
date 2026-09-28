@@ -13,12 +13,12 @@ router.get('/contacts', (req, res) => {
   const bSqlInv = bid ? 'AND i.branch_id = ?' : '';
   const bP = bid ? [bid] : [];
   
-  const sql = kind ? \`SELECT * FROM contacts WHERE company_id = ? \${bSql} AND kind = ? ORDER BY name\` : \`SELECT * FROM contacts WHERE company_id = ? \${bSql} ORDER BY kind, name\`;
+  const sql = kind ? `SELECT * FROM contacts WHERE company_id = ? ${bSql} AND kind = ? ORDER BY name` : `SELECT * FROM contacts WHERE company_id = ? ${bSql} ORDER BY kind, name`;
   const params = kind ? [req.user.company_id, ...bP, kind] : [req.user.company_id, ...bP];
   const contacts = db.prepare(sql).all(...params).map(c => {
-    const bal = db.prepare(\`
+    const bal = db.prepare(`
       SELECT ROUND(COALESCE(SUM(i.total / i.fx_rate - COALESCE((SELECT SUM(p.base_amount) FROM payments p WHERE p.invoice_id = i.id),0)),0),2) v
-      FROM invoices i WHERE i.company_id = ? \${bSqlInv} AND i.contact_id = ? AND i.kind = ? AND i.status != 'draft'\`)
+      FROM invoices i WHERE i.company_id = ? ${bSqlInv} AND i.contact_id = ? AND i.kind = ? AND i.status != 'draft'`)
       .get(req.user.company_id, ...bP, c.id, c.kind === 'customer' ? 'sale' : 'purchase').v;
     return { ...c, balance: bal };
   });
@@ -53,7 +53,7 @@ router.get('/products', (req, res) => {
   const { bid } = getBranchCtx(req);
   const bSql = bid ? 'AND branch_id = ?' : '';
   const bP = bid ? [bid] : [];
-  const rows = db.prepare(\`SELECT * FROM products WHERE company_id = ? \${bSql} ORDER BY name\`).all(req.user.company_id, ...bP)
+  const rows = db.prepare(`SELECT * FROM products WHERE company_id = ? ${bSql} ORDER BY name`).all(req.user.company_id, ...bP)
     .map(p => ({ ...p, low: p.stock <= p.reorder_level, value: r2(p.stock * p.cost) }));
   const categories = [...new Set(rows.map(p => p.category).filter(Boolean))].sort();
   res.json({ products: rows, categories });
@@ -130,7 +130,7 @@ router.get('/inventory/summary', (req, res) => {
   const bSql = bid ? 'AND branch_id = ?' : '';
   const bP = bid ? [bid] : [];
 
-  const products = db.prepare(\`SELECT * FROM products WHERE company_id = ? \${bSql} ORDER BY name\`).all(cid, ...bP)
+  const products = db.prepare(`SELECT * FROM products WHERE company_id = ? ${bSql} ORDER BY name`).all(cid, ...bP)
     .map(p => ({ ...p, low: p.stock <= p.reorder_level, value: r2(p.stock * p.cost) }));
   const totalValue = r2(products.reduce((s, p) => s + p.value, 0));
   const totalItems = products.length;
@@ -205,12 +205,12 @@ router.get('/inventory/print-report', (req, res) => {
   const bSql = bid ? 'AND p.branch_id = ?' : '';
   const bP = bid ? [bid] : [];
 
-  const products = db.prepare(\`
+  const products = db.prepare(`
     SELECT p.*, ROUND(p.stock * p.cost, 2) as value
     FROM products p
-    WHERE p.company_id = ? \${bSql}
+    WHERE p.company_id = ? ${bSql}
     ORDER BY p.category ASC, p.name ASC
-  \`).all(cid, ...bP).map(p => ({ ...p, low: p.stock <= p.reorder_level }));
+  `).all(cid, ...bP).map(p => ({ ...p, low: p.stock <= p.reorder_level }));
   const totalValue = products.reduce((s, p) => s + (p.value || 0), 0);
   const totalItems = products.length;
   const categories = [...new Set(products.map(p => p.category).filter(Boolean))];

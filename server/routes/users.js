@@ -15,10 +15,10 @@ function requireCompanyAdmin(req, res, next) {
 /* GET /api/users — list all users in this company */
 router.get('/', requireCompanyAdmin, (req, res) => {
   const users = db.prepare(
-    \`SELECT u.id, u.name, u.email, u.role, u.branch_id, u.created_at, b.name AS branch_name 
+    `SELECT u.id, u.name, u.email, u.role, u.branch_id, u.created_at, b.name AS branch_name 
      FROM users u 
      LEFT JOIN branches b ON b.id = u.branch_id
-     WHERE u.company_id = ? ORDER BY u.role, u.name\`
+     WHERE u.company_id = ? ORDER BY u.role, u.name`
   ).all(req.user.company_id);
   res.json({ users });
 });

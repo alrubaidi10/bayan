@@ -12,12 +12,12 @@ router.get('/invoices', (req, res) => {
   const bSql = bid ? 'AND i.branch_id = ?' : '';
   const bP = bid ? [bid] : [];
 
-  let sql = \`
+  let sql = `
     SELECT i.*, c.name AS contact_name, c.email AS contact_email,
       ROUND(COALESCE(i.total_base, i.total / i.fx_rate),2) AS total_base_eff,
       ROUND(COALESCE((SELECT SUM(base_amount) FROM payments p WHERE p.invoice_id = i.id),0),2) AS paid_base
     FROM invoices i LEFT JOIN contacts c ON c.id = i.contact_id
-    WHERE i.company_id = ? \${bSql} AND i.kind = ?\`;
+    WHERE i.company_id = ? ${bSql} AND i.kind = ?`;
   const params = [req.user.company_id, ...bP, kind];
   if (req.query.from) { sql += ' AND i.date >= ?'; params.push(req.query.from); }
   if (req.query.to) { sql += ' AND i.date <= ?'; params.push(req.query.to); }
@@ -71,8 +71,8 @@ function buildInvoice(req, res, kind) {
   const total = r2(totalBase * rate);
   const number = nextNumber(cid, kind === 'sale' ? 'INV' : 'BILL');
 
-  const invId = db.prepare(\`INSERT INTO invoices (company_id, branch_id, kind, number, contact_id, date, due_date, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)\`)
+  const invId = db.prepare(`INSERT INTO invoices (company_id, branch_id, kind, number, contact_id, date, due_date, currency, fx_rate, subtotal, tax_amount, total, subtotal_base, tax_base, total_base, status, memo)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
     .run(cid, bid, kind, number, contact_id || null, date, due_date || null, cur, rate, subtotal, taxAmount, total, subtotalBase, taxBase, totalBase, 'draft', memo || '')
     .lastInsertRowid;
   const insItem = db.prepare('INSERT INTO invoice_items (invoice_id, product_id, description, qty, unit_price, amount, base_amount, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?,?)');
@@ -207,13 +207,13 @@ router.get('/expenses', (req, res) => {
   const bSql = bid ? 'AND e.branch_id = ?' : '';
   const bP = bid ? [bid] : [];
 
-  let sql = \`
+  let sql = `
     SELECT e.*, a.name AS account_name, c.name AS contact_name, pa.name AS payment_account_name
     FROM expenses e
     LEFT JOIN accounts a ON a.id = e.account_id
     LEFT JOIN contacts c ON c.id = e.contact_id
     LEFT JOIN accounts pa ON pa.id = e.payment_account_id
-    WHERE e.company_id = ? \${bSql}\`;
+    WHERE e.company_id = ? ${bSql}`;
   const params = [req.user.company_id, ...bP];
   if (req.query.from) { sql += ' AND e.date >= ?'; params.push(req.query.from); }
   if (req.query.to) { sql += ' AND e.date <= ?'; params.push(req.query.to); }
@@ -236,8 +236,8 @@ router.post('/expenses', (req, res) => {
   const cur = currency || 'USD';
   const rate = fx_rate ? Number(fx_rate) : rateFor(cid, cur);
   const base = r2(Number(amount) / rate);
-  const info = db.prepare(\`INSERT INTO expenses (company_id, branch_id, date, account_id, contact_id, currency, fx_rate, amount, base_amount, memo, payment_account_id)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?)\`)
+  const info = db.prepare(`INSERT INTO expenses (company_id, branch_id, date, account_id, contact_id, currency, fx_rate, amount, base_amount, memo, payment_account_id)
+    VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
     .run(cid, bid, date, account_id, contact_id || null, cur, rate, Number(amount), base, memo || '', payment_account_id || null);
 
   // post: Dr expense account, Cr cash (or specified payment account / AP fallback)

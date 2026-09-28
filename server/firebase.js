@@ -4,9 +4,34 @@ const admin = require('firebase-admin');
 const { getFirestore } = require('firebase-admin/firestore');
 const { db, r2 } = require('./lib');
 
+const https = require('https');
+
 let firestoreInstance = null;
 let initError = null;
 let lastSyncTime = null;
+let timeOffsetMs = 0;
+let timeChecked = false;
+
+function syncTimeWithGoogle() {
+  return new Promise((resolve) => {
+    if (timeChecked) return resolve(timeOffsetMs);
+    const req = https.get('https://www.google.com', { timeout: 3000 }, (res) => {
+      if (res.headers.date) {
+        const googleTime = new Date(res.headers.date).getTime();
+        const diff = Date.now() - googleTime;
+        if (Math.abs(diff) > 20000) {
+          timeOffsetMs = diff;
+          const origNow = Date.now;
+          Date.now = () => origNow() - timeOffsetMs;
+        }
+      }
+      timeChecked = true;
+      resolve(timeOffsetMs);
+    });
+    req.on('error', () => { timeChecked = true; resolve(0); });
+    req.on('timeout', () => { req.destroy(); timeChecked = true; resolve(0); });
+  });
+}
 
 function getServiceAccount() {
   // 1. Environment variable (Render / Production)
@@ -50,8 +75,9 @@ function initFirebase() {
   }
 
   try {
-    const app = admin.apps.length > 0
-      ? admin.app()
+    const apps = admin.getApps();
+    const app = apps.length > 0
+      ? admin.getApp()
       : admin.initializeApp({ credential: admin.cert(sa) });
     firestoreInstance = getFirestore(app);
     initError = null;
@@ -67,6 +93,7 @@ function initFirebase() {
  * Backs up all operational & accounting data for a company to Firestore
  */
 async function syncCompanyToFirestore(companyId) {
+  await syncTimeWithGoogle();
   const fsDb = initFirebase();
   if (!fsDb) throw new Error(initError || 'firebase_not_configured');
 
@@ -138,6 +165,7 @@ async function syncCompanyToFirestore(companyId) {
  * Restores data for a company from the latest Firestore snapshot
  */
 async function restoreCompanyFromFirestore(companyId) {
+  await syncTimeWithGoogle();
   const fsDb = initFirebase();
   if (!fsDb) throw new Error(initError || 'firebase_not_configured');
 

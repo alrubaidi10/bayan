@@ -30,17 +30,12 @@ function startEmbeddedServer() {
 
   // Require compiled or standard server
   try {
-    // Try to load bytecode first, fallback to standard server
-    try {
+    const appBuildEntry = path.join(__dirname, 'app-build', 'server', 'index.js');
+    if (require('fs').existsSync(appBuildEntry)) {
       require('bytenode');
-      const protectedEntry = path.join(__dirname, '..', 'server', 'index.jsc');
-      if (require('fs').existsSync(protectedEntry)) {
-        require(protectedEntry);
-        console.log('[Desktop] Loaded protected bytecode server.');
-        return;
-      }
-    } catch (e) {
-      // Bytenode optional in dev
+      require(appBuildEntry);
+      console.log('[Desktop] Loaded protected bytecode server from app-build.');
+      return;
     }
 
     require(path.join(__dirname, '..', 'server', 'index.js'));

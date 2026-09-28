@@ -24,7 +24,7 @@
     },
     "files": [
       "main.js",
-      "../server/**/*",
+      "app-build/**/*",
       "../public/**/*",
       "../package.json",
       "../node_modules/**/*"

@@ -22,3 +22,10 @@ bayan_flutter/.idea/
 bayan_flutter/android/.gradle/
 bayan_flutter/ios/Pods/
 
+# Desktop build outputs & bytecode
+dist-desktop/
+desktop/node_modules/
+desktop/app-build/
+*.jsc
+
+

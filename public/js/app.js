@@ -189,6 +189,9 @@ function renderShell() {
         <span class="crumb" id="page-crumb"></span>
         <div class="spacer"></div>
         ${subChip}
+        <button class="btn sm" id="btn-pwa-install" style="display:none;align-items:center;gap:6px;border-radius:20px;font-size:.78rem;font-weight:700;padding:4px 10px;margin-inline-end:6px;background:var(--primary);color:#fff">
+          📲 تثبيت التطبيق
+        </button>
         <!-- Branch selector for admin / branch indicator for non-admin -->
         <div id="branch-chip-wrap" style="display:flex;align-items:center;margin-inline-end:6px"></div>
         <span class="badge primary" title="${esc(t('base_cur_note', { cur: sub.base_currency }))}">${esc(sub.base_currency)}</span>
@@ -204,6 +207,25 @@ function renderShell() {
   const appEl = document.getElementById('app');
   appEl.innerHTML = '';
   appEl.appendChild(shell);
+
+  // Wire PWA install button
+  const pwaBtn = shell.querySelector('#btn-pwa-install');
+  if (pwaBtn) {
+    if (window.deferredPrompt) pwaBtn.style.display = 'inline-flex';
+    pwaBtn.onclick = async () => {
+      if (window.deferredPrompt) {
+        window.deferredPrompt.prompt();
+        const { outcome } = await window.deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+          pwaBtn.style.display = 'none';
+          toast('تم تثبيت تطبيق بيان بنجاح على هاتفك!');
+        }
+        window.deferredPrompt = null;
+      } else {
+        toast('لتثبيت التطبيق على الآيفون: اضغط مشاركة (Share) ثم "إضافة إلى الشاشة الرئيسية"');
+      }
+    };
+  }
 
   const nav = shell.querySelector('#nav');
   for (const g of groups) {

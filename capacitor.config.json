@@ -1,0 +1,12 @@
+{
+  "appId": "com.bayan.erp",
+  "appName": "بيان ERP",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

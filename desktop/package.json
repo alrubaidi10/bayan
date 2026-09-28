@@ -1,0 +1,47 @@
+{
+  "name": "bayan-erp-desktop",
+  "version": "1.0.0",
+  "description": "بيان ERP — تطبيق سطح المكتب المحمي",
+  "main": "main.js",
+  "author": "Bayan ERP",
+  "scripts": {
+    "start": "electron .",
+    "protect": "node protect.js",
+    "build:exe": "node protect.js && electron-builder --win --x64"
+  },
+  "dependencies": {
+    "bytenode": "^1.5.5"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.bayan.erp",
+    "productName": "بيان ERP",
+    "directories": {
+      "output": "../dist-desktop"
+    },
+    "files": [
+      "main.js",
+      "../server/**/*",
+      "../public/**/*",
+      "../package.json",
+      "../node_modules/**/*"
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "../public/img/logo.jpeg",
+      "artifactName": "BayanERP-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "بيان ERP",
+      "installerLanguages": ["Arabic", "English"],
+      "defaultInstallMode": "currentUser"
+    }
+  }
+}

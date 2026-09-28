@@ -2,9 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Bayan — ERP & Accounting</title>
 <link rel="icon" type="image/jpeg" href="/img/logo.jpeg">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#2563eb">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="بيان ERP">
+<link rel="apple-touch-icon" href="/img/logo.jpeg">
 <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -34,5 +41,23 @@
 <script src="/js/pages/branches.js"></script>
 <script src="/js/pages/admin.js"></script>
 <script src="/js/app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(reg => console.log('[PWA] Service Worker registered:', reg.scope))
+        .catch(err => console.log('[PWA] Service Worker registration failed:', err));
+    });
+  }
+
+  // Global PWA Install Prompt Handler
+  window.deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    window.deferredPrompt = e;
+    const btnInstall = document.getElementById('btn-pwa-install');
+    if (btnInstall) btnInstall.style.display = 'inline-flex';
+  });
+</script>
 </body>
 </html>

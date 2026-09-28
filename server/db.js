@@ -333,4 +333,40 @@ for (const mb of mainBranches) {
   db.prepare('UPDATE journal_entries SET branch_id = ? WHERE company_id = ? AND branch_id IS NULL').run(bid, cid);
 }
 
+// Product serials (IMEI / Serial Numbers for mobile phones & telecom devices)
+db.exec(`CREATE TABLE IF NOT EXISTS product_serials (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  company_id INTEGER NOT NULL REFERENCES companies(id),
+  branch_id INTEGER REFERENCES branches(id),
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  serial_number TEXT NOT NULL,
+  serial_number_2 TEXT DEFAULT '',
+  batch_number TEXT DEFAULT '',
+  storage TEXT DEFAULT '',
+  ram TEXT DEFAULT '',
+  color TEXT DEFAULT '',
+  shelf_location TEXT DEFAULT '',
+  condition TEXT NOT NULL DEFAULT 'new',
+  status TEXT NOT NULL DEFAULT 'available',
+  cost REAL NOT NULL DEFAULT 0,
+  price REAL NOT NULL DEFAULT 0,
+  invoice_id INTEGER DEFAULT NULL,
+  purchase_bill_id INTEGER DEFAULT NULL,
+  sold_at TEXT DEFAULT NULL,
+  warranty_months INTEGER DEFAULT 24,
+  notes TEXT DEFAULT '',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_serials_company ON product_serials(company_id);
+CREATE INDEX IF NOT EXISTS idx_serials_product ON product_serials(product_id);
+CREATE INDEX IF NOT EXISTS idx_serials_sn ON product_serials(company_id, serial_number);
+CREATE INDEX IF NOT EXISTS idx_serials_status ON product_serials(company_id, status);`);
+
+ensureColumn('products', 'brand', "brand TEXT NOT NULL DEFAULT ''");
+ensureColumn('products', 'model', "model TEXT NOT NULL DEFAULT ''");
+ensureColumn('products', 'storage', "storage TEXT NOT NULL DEFAULT ''");
+ensureColumn('products', 'color', "color TEXT NOT NULL DEFAULT ''");
+ensureColumn('products', 'ram', "ram TEXT NOT NULL DEFAULT ''");
+ensureColumn('products', 'has_serials', "has_serials INTEGER NOT NULL DEFAULT 1");
+
 module.exports = db;

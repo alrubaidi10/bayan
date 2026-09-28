@@ -112,6 +112,7 @@ async function syncCompanyToFirestore(companyId) {
     : [];
   const expenses = db.prepare('SELECT * FROM expenses WHERE company_id = ?').all(cid);
   const users = db.prepare('SELECT id, company_id, branch_id, name, email, password_hash, role, is_superadmin, created_at FROM users WHERE company_id = ?').all(cid);
+  const productSerials = db.prepare('SELECT * FROM product_serials WHERE company_id = ?').all(cid);
   const quotes = db.prepare('SELECT * FROM quotes WHERE company_id = ?').all(cid);
   const stockTransfers = db.prepare('SELECT * FROM stock_transfers WHERE company_id = ?').all(cid);
   const stockMoves = db.prepare('SELECT * FROM stock_moves WHERE company_id = ?').all(cid);
@@ -132,6 +133,7 @@ async function syncCompanyToFirestore(companyId) {
     accounts,
     contacts,
     products,
+    productSerials,
     invoices,
     invoiceItems,
     expenses,
@@ -147,6 +149,7 @@ async function syncCompanyToFirestore(companyId) {
       accounts: accounts.length,
       contacts: contacts.length,
       products: products.length,
+      productSerials: productSerials.length,
       invoices: invoices.length,
       expenses: expenses.length,
       journalEntries: journalEntries.length,
@@ -246,6 +249,20 @@ async function restoreCompanyFromFirestore(companyId) {
             unit=excluded.unit, cost=excluded.cost, price=excluded.price,
             stock=excluded.stock, reorder_level=excluded.reorder_level, is_active=excluded.is_active
         `).run(p.id, cid, p.branch_id || null, p.name, p.name_ar || '', p.category || '', p.sku || '', p.barcode || '', p.unit || 'pcs', p.cost || 0, p.price || 0, p.stock || 0, p.reorder_level || 0, p.is_active ? 1 : 0);
+      }
+    }
+
+    // Product Serials (IMEIs)
+    if (Array.isArray(data.productSerials)) {
+      for (const s of data.productSerials) {
+        db.prepare(`
+          INSERT INTO product_serials (id, company_id, branch_id, product_id, serial_number, serial_number_2, batch_number, storage, ram, color, shelf_location, condition, status, cost, price, invoice_id, purchase_bill_id, sold_at, warranty_months, notes, created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+          ON CONFLICT(id) DO UPDATE SET
+            branch_id=excluded.branch_id, shelf_location=excluded.shelf_location, condition=excluded.condition,
+            status=excluded.status, price=excluded.price, cost=excluded.cost, invoice_id=excluded.invoice_id,
+            sold_at=excluded.sold_at, notes=excluded.notes
+        `).run(s.id, cid, s.branch_id || null, s.product_id, s.serial_number, s.serial_number_2 || '', s.batch_number || '', s.storage || '', s.ram || '', s.color || '', s.shelf_location || '', s.condition || 'new', s.status || 'available', s.cost || 0, s.price || 0, s.invoice_id || null, s.purchase_bill_id || null, s.sold_at || null, s.warranty_months || 24, s.notes || '', s.created_at || new Date().toISOString());
       }
     }
 

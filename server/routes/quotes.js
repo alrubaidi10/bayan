@@ -1,5 +1,6 @@
 const express = require('express');
 const { db, requireAuth, r2, rateFor } = require('../lib');
+const { triggerAutoSync } = require('../firebase');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -68,6 +69,7 @@ router.post('/quotes', (req, res) => {
     .lastInsertRowid;
   const ins = db.prepare('INSERT INTO quote_items (quote_id, product_id, description, qty, unit_price, amount, base_amount, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?,?)');
   for (const r of rows) ins.run(id, r.product_id, r.description, r.qty, r.unit_price, r.amount, r.base_amount, r.currency, r.fx_rate);
+  triggerAutoSync(cid);
   res.json({ quote: db.prepare('SELECT * FROM quotes WHERE id = ?').get(id) });
 });
 
@@ -77,6 +79,7 @@ router.put('/quotes/:id', (req, res) => {
   const { status } = req.body || {};
   if (!['draft', 'sent', 'accepted', 'converted'].includes(status)) return res.status(400).json({ error: 'invalid_status' });
   db.prepare('UPDATE quotes SET status = ? WHERE id = ?').run(status, q.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ quote: db.prepare('SELECT * FROM quotes WHERE id = ?').get(q.id) });
 });
 
@@ -101,6 +104,7 @@ router.post('/quotes/:id/convert', (req, res) => {
   const ins = db.prepare('INSERT INTO invoice_items (invoice_id, product_id, description, qty, unit_price, amount, base_amount, currency, fx_rate) VALUES (?,?,?,?,?,?,?,?,?)');
   for (const it of items) ins.run(invId, it.product_id, it.description, it.qty, it.unit_price, it.amount, r2(it.amount / (it.fx_rate || q.fx_rate)), it.currency || q.currency, it.fx_rate || q.fx_rate);
   db.prepare("UPDATE quotes SET status='converted', converted_invoice_id=? WHERE id=?").run(invId, q.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ quote: db.prepare('SELECT * FROM quotes WHERE id = ?').get(q.id), invoice: db.prepare('SELECT * FROM invoices WHERE id = ?').get(invId) });
 });
 
@@ -109,6 +113,7 @@ router.delete('/quotes/:id', (req, res) => {
   if (!q) return res.status(404).json({ error: 'not_found' });
   if (q.status !== 'draft') return res.status(400).json({ error: 'posted_only_draft' });
   db.prepare('DELETE FROM quotes WHERE id = ?').run(q.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ ok: true });
 });
 

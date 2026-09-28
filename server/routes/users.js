@@ -1,5 +1,6 @@
 const express = require('express');
 const { db, requireAuth, hashPassword } = require('../lib');
+const { triggerAutoSync } = require('../firebase');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -39,6 +40,7 @@ router.post('/', requireCompanyAdmin, (req, res) => {
     'INSERT INTO users (company_id, branch_id, name, email, password_hash, role) VALUES (?,?,?,?,?,?)'
   ).run(req.user.company_id, branch_id || null, name.trim(), email.trim().toLowerCase(), hashPassword(password), role);
 
+  triggerAutoSync(req.user.company_id);
   const user = db.prepare('SELECT id, name, email, role, created_at FROM users WHERE id = ?').get(info.lastInsertRowid);
   res.json({ user });
 });
@@ -79,6 +81,7 @@ router.put('/:id', requireCompanyAdmin, (req, res) => {
     user.id
   );
 
+  triggerAutoSync(req.user.company_id);
   res.json({ user: db.prepare('SELECT id, name, email, role, created_at FROM users WHERE id = ?').get(user.id) });
 });
 
@@ -99,6 +102,7 @@ router.delete('/:id', requireCompanyAdmin, (req, res) => {
 
   db.prepare('DELETE FROM sessions WHERE user_id = ?').run(user.id);
   db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ ok: true });
 });
 

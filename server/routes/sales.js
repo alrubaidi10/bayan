@@ -1,5 +1,6 @@
 const express = require('express');
 const { db, requireAuth, r2, postInvoice, recordPayment, nextNumber, rateFor, productById, createEntry } = require('../lib');
+const { triggerAutoSync } = require('../firebase');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -79,6 +80,7 @@ function buildInvoice(req, res, kind) {
   for (const r of rows) insItem.run(invId, r.product_id, r.description, r.qty, r.unit_price, r.amount, r.base_amount, r.currency, r.fx_rate);
 
   if (status === 'posted') postInvoice(cid, db.prepare('SELECT * FROM invoices WHERE id = ?').get(invId));
+  triggerAutoSync(cid);
   res.json({ invoice: db.prepare('SELECT * FROM invoices WHERE id = ?').get(invId) });
 }
 
@@ -92,6 +94,7 @@ router.post('/invoices/:id/post', (req, res) => {
   if (!inv) return res.status(404).json({ error: 'not_found' });
   if (inv.status !== 'draft') return res.status(400).json({ error: 'already_posted' });
   postInvoice(req.user.company_id, inv);
+  triggerAutoSync(req.user.company_id);
   res.json({ invoice: db.prepare('SELECT * FROM invoices WHERE id = ?').get(inv.id) });
 });
 
@@ -104,6 +107,7 @@ router.post('/invoices/:id/pay', (req, res) => {
   const acc = db.prepare('SELECT id FROM accounts WHERE id = ? AND company_id = ?').get(account_id, req.user.company_id);
   if (!acc) return res.status(400).json({ error: 'invalid_account' });
   recordPayment(req.user.company_id, inv, { date, amount: Number(amount), accountId: account_id, memo });
+  triggerAutoSync(req.user.company_id);
   res.json({ invoice: db.prepare('SELECT * FROM invoices WHERE id = ?').get(inv.id) });
 });
 
@@ -112,6 +116,7 @@ router.delete('/invoices/:id', (req, res) => {
   if (!inv) return res.status(404).json({ error: 'not_found' });
   if (inv.status !== 'draft') return res.status(400).json({ error: 'posted_only_draft' });
   db.prepare('DELETE FROM invoices WHERE id = ?').run(inv.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ ok: true });
 });
 
@@ -196,7 +201,7 @@ router.post('/invoices/:id/return', (req, res) => {
 
   const { createEntry } = require('../lib');
   createEntry(cid, returnDate, 'Return ' + inv.number, returnNumber, 'return', retId, lines);
-
+  triggerAutoSync(cid);
   res.json({ invoice: db.prepare('SELECT * FROM invoices WHERE id = ?').get(retId) });
 });
 
@@ -251,6 +256,7 @@ router.post('/expenses', (req, res) => {
   ];
   const { createEntry } = require('../lib');
   createEntry(cid, date, memo || 'Expense', 'EXP-' + String(n + 1).padStart(4, '0'), 'expense', info.lastInsertRowid, lines);
+  triggerAutoSync(cid);
   res.json({ expense: db.prepare('SELECT * FROM expenses WHERE id = ?').get(info.lastInsertRowid) });
 });
 
@@ -281,6 +287,7 @@ router.put('/expenses/:id', (req, res) => {
       { account_id: accId, debit: base, credit: 0 },
       { account_id: payAcc, debit: 0, credit: base },
     ]);
+  triggerAutoSync(cid);
   res.json({ expense: db.prepare('SELECT * FROM expenses WHERE id = ?').get(ex.id) });
 });
 
@@ -290,6 +297,7 @@ router.delete('/expenses/:id', (req, res) => {
   if (!ex) return res.status(404).json({ error: 'not_found' });
   db.prepare("DELETE FROM journal_entries WHERE company_id = ? AND source='expense' AND source_id = ?").run(req.user.company_id, ex.id);
   db.prepare('DELETE FROM expenses WHERE id = ?').run(ex.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ ok: true });
 });
 

@@ -1,5 +1,6 @@
 const express = require('express');
 const { db, requireAuth, r2, productById } = require('../lib');
+const { triggerAutoSync } = require('../firebase');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -34,6 +35,7 @@ router.post('/contacts', (req, res) => {
   if (!kind || !name) return res.status(400).json({ error: 'missing_fields' });
   const info = db.prepare('INSERT INTO contacts (company_id, branch_id, kind, name, email, phone, address, tax_no, currency) VALUES (?,?,?,?,?,?,?,?,?)')
     .run(req.user.company_id, bid, kind, name, email || '', phone || '', address || '', tax_no || '', currency || '');
+  triggerAutoSync(req.user.company_id);
   res.json({ contact: db.prepare('SELECT * FROM contacts WHERE id = ?').get(info.lastInsertRowid) });
 });
 
@@ -44,6 +46,7 @@ router.put('/contacts/:id', (req, res) => {
   db.prepare('UPDATE contacts SET name=?, email=?, phone=?, address=?, tax_no=?, currency=? WHERE id=?')
     .run(name ?? c.name, email ?? c.email, phone ?? c.phone, address ?? c.address, tax_no ?? c.tax_no,
       currency === undefined ? c.currency : currency, c.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ contact: db.prepare('SELECT * FROM contacts WHERE id = ?').get(c.id) });
 });
 
@@ -68,6 +71,7 @@ router.post('/products', (req, res) => {
   if (!name) return res.status(400).json({ error: 'missing_fields' });
   const info = db.prepare('INSERT INTO products (company_id, branch_id, name, name_ar, category, sku, barcode, unit, cost, price, stock, reorder_level) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
     .run(req.user.company_id, bid, name, name_ar || '', category || '', sku || '', barcode || '', unit || 'pcs', Number(cost) || 0, Number(price) || 0, Number(stock) || 0, Number(reorder_level) || 0);
+  triggerAutoSync(req.user.company_id);
   res.json({ product: db.prepare('SELECT * FROM products WHERE id = ?').get(info.lastInsertRowid) });
 });
 
@@ -80,6 +84,7 @@ router.put('/products/:id', (req, res) => {
       sku ?? p.sku, barcode === undefined ? p.barcode : barcode, unit ?? p.unit,
       price === undefined ? p.price : Number(price), reorder_level === undefined ? p.reorder_level : Number(reorder_level),
       is_active === undefined ? p.is_active : (is_active ? 1 : 0), p.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ product: db.prepare('SELECT * FROM products WHERE id = ?').get(p.id) });
 });
 
@@ -119,6 +124,7 @@ router.post('/stock-moves', (req, res) => {
   db.prepare('UPDATE products SET stock = ROUND(stock + ?, 4) WHERE id = ?').run(qtyNum, p.id);
 
   const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(p.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ product: updated, qty_change: qtyNum });
 });
 
@@ -170,6 +176,7 @@ router.put('/settings', (req, res) => {
       phone === undefined ? (company.phone || '') : phone,
       company.id
     );
+  triggerAutoSync(req.user.company_id);
   const c2 = db.prepare('SELECT * FROM companies WHERE id = ?').get(req.user.company_id);
   const currencies = db.prepare('SELECT * FROM currencies WHERE company_id = ? ORDER BY code').all(req.user.company_id);
   res.json({ company: c2, currencies });

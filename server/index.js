@@ -48,4 +48,10 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`SQLite database: ${dataDir}/erp.db`);
   if (process.env.DATA_DIR) console.log(`Persistent storage OK (DATA_DIR=${dataDir})`);
   else console.warn('WARNING: DATA_DIR not set — database is ephemeral and will be LOST on redeploy. Set DATA_DIR to a persistent volume!');
+
+  // Firebase Live Sync & Recovery
+  const { autoRestoreOnBoot, startPeriodicSync } = require('./firebase');
+  autoRestoreOnBoot().catch(e => console.error('[Firebase Boot] Startup sync error:', e.message));
+  startPeriodicSync(30);
 });
+

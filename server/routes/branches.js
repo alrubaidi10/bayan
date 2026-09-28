@@ -1,5 +1,6 @@
 const express = require('express');
 const { db, requireAuth } = require('../lib');
+const { triggerAutoSync } = require('../firebase');
 const router = express.Router();
 router.use(requireAuth);
 
@@ -25,6 +26,7 @@ router.post('/', requireAdmin, (req, res) => {
   if (!name) return res.status(400).json({ error: 'missing_fields' });
   const info = db.prepare('INSERT INTO branches (company_id, name, code, address, phone) VALUES (?,?,?,?,?)')
     .run(req.user.company_id, name.trim(), (code || '').trim().toUpperCase(), address || '', phone || '');
+  triggerAutoSync(req.user.company_id);
   res.json({ branch: db.prepare('SELECT * FROM branches WHERE id = ?').get(info.lastInsertRowid) });
 });
 
@@ -36,6 +38,7 @@ router.put('/:id', requireAdmin, (req, res) => {
   db.prepare('UPDATE branches SET name=?, code=?, address=?, phone=?, is_active=? WHERE id=?')
     .run(name ?? b.name, code !== undefined ? code.trim().toUpperCase() : b.code, address ?? b.address, phone ?? b.phone,
       is_active === undefined ? b.is_active : (is_active ? 1 : 0), b.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ branch: db.prepare('SELECT * FROM branches WHERE id = ?').get(b.id) });
 });
 
@@ -55,6 +58,7 @@ router.delete('/:id', requireAdmin, (req, res) => {
   ].some(n => n > 0);
   if (hasData) return res.status(400).json({ error: 'branch_has_data' });
   db.prepare('DELETE FROM branches WHERE id = ?').run(b.id);
+  triggerAutoSync(req.user.company_id);
   res.json({ ok: true });
 });
 

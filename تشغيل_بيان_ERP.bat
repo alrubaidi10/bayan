@@ -1,13 +1,14 @@
 @echo off
-chcp 65001 >nul
-title تشغيل نظام بيان ERP
+setlocal
 cd /d "%~dp0"
 
 echo ========================================================
-echo   جاري تشغيل نظام بيان ERP على جهازك المحلي...
+echo   Starting Bayan ERP Local Server...
 echo ========================================================
 echo.
 
 start "" "http://localhost:3000"
-node server/index.js
+call node.exe server/index.js
+
+echo.
 pause

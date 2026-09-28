@@ -5,6 +5,8 @@ const STATIC_ASSETS = [
   '/index.html',
   '/css/app.css',
   '/img/logo.jpeg',
+  '/img/icon-192.png',
+  '/img/icon-512.png',
   '/js/i18n.js',
   '/js/api.js',
   '/js/ui.js',

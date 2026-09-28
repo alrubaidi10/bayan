@@ -189,7 +189,7 @@ function renderShell() {
         <span class="crumb" id="page-crumb"></span>
         <div class="spacer"></div>
         ${subChip}
-        <button class="btn sm" id="btn-pwa-install" style="display:none;align-items:center;gap:6px;border-radius:20px;font-size:.78rem;font-weight:700;padding:4px 10px;margin-inline-end:6px;background:var(--primary);color:#fff">
+        <button class="btn sm" id="btn-pwa-install" style="display:inline-flex;align-items:center;gap:6px;border-radius:20px;font-size:.78rem;font-weight:700;padding:4px 12px;margin-inline-end:6px;background:var(--primary);color:#fff">
           📲 تثبيت التطبيق
         </button>
         <!-- Branch selector for admin / branch indicator for non-admin -->
@@ -211,18 +211,61 @@ function renderShell() {
   // Wire PWA install button
   const pwaBtn = shell.querySelector('#btn-pwa-install');
   if (pwaBtn) {
-    if (window.deferredPrompt) pwaBtn.style.display = 'inline-flex';
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    if (isStandalone) {
+      pwaBtn.style.display = 'none'; // Already installed & running in app mode
+    }
+
     pwaBtn.onclick = async () => {
       if (window.deferredPrompt) {
         window.deferredPrompt.prompt();
         const { outcome } = await window.deferredPrompt.userChoice;
         if (outcome === 'accepted') {
           pwaBtn.style.display = 'none';
-          toast('تم تثبيت تطبيق بيان بنجاح على هاتفك!');
+          toast('تم تثبيت تطبيق بيان بنجاح على جهازك!');
         }
         window.deferredPrompt = null;
       } else {
-        toast('لتثبيت التطبيق على الآيفون: اضغط مشاركة (Share) ثم "إضافة إلى الشاشة الرئيسية"');
+        // Show interactive guide modal
+        modal({
+          title: 'تثبيت نظام بيان ERP كتطبيق مستقل',
+          wide: false,
+          onOpen(mBody, mClose) {
+            mBody.innerHTML = `
+              <div style="text-align:center;margin-bottom:16px">
+                <img src="/img/icon-192.png" style="width:72px;height:72px;border-radius:16px;box-shadow:var(--shadow-sm);margin-bottom:10px">
+                <h3 style="margin:0 0 6px">تثبيت بيان ERP</h3>
+                <p style="color:var(--muted);font-size:.85rem;margin:0">تشغيل النظام كنافذة مستقلة بدون متصفح على الكمبيوتر أو الجوال</p>
+              </div>
+
+              <div style="background:var(--bg);border-radius:10px;padding:14px;border:1px solid var(--border);display:flex;flex-direction:column;gap:12px;font-size:.88rem">
+                <div>
+                  <b>💻 على أجهزة الكمبيوتر واللابتوب (Chrome / Edge):</b>
+                  <p style="color:var(--muted);margin:4px 0 0">
+                    اضغط على قائمة المتصفح (الثلاث نقاط <b>⋮</b> بأعلى اليمين) &larr; اختَر <b>«تطبيقات (Apps)»</b> &larr; ثم <b>«تثبيت بيان ERP كتطبيق»</b>.
+                  </p>
+                </div>
+                <div style="border-top:1px solid var(--border);padding-top:10px">
+                  <b>📱 على هواتف أندرويد (Chrome):</b>
+                  <p style="color:var(--muted);margin:4px 0 0">
+                    اضغط على القائمة <b>⋮</b> بأعلى المتصفح &larr; ثم اختَر <b>«إضافة إلى الشاشة الرئيسية»</b> أو <b>«تثبيت التطبيق»</b>.
+                  </p>
+                </div>
+                <div style="border-top:1px solid var(--border);padding-top:10px">
+                  <b>🍎 على هواتف آيفون (Safari):</b>
+                  <p style="color:var(--muted);margin:4px 0 0">
+                    اضغط على زر المشاركة بالأسفل <b>(📤)</b> &larr; ثم مرر لأسفل واختر <b>«إضافة إلى الشاشة الرئيسية»</b>.
+                  </p>
+                </div>
+              </div>
+
+              <div style="margin-top:16px;text-align:center">
+                <button class="btn primary" id="m-got-it" style="width:100%">فهمت ذلك</button>
+              </div>
+            `;
+            mBody.querySelector('#m-got-it').onclick = mClose;
+          }
+        });
       }
     };
   }

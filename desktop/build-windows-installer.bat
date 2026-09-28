@@ -1,26 +1,26 @@
 @echo off
-chcp 65001 >nul
-echo ========================================================
-echo   بيان ERP — بناء ملف التثبيت المحمي للعميل (Windows .exe)
-echo ========================================================
-echo.
-
+setlocal
 cd /d "%~dp0"
 
-echo [1/3] تثبيت حزم سطح المكتب...
-call npm install
+echo ========================================================
+echo   Bayan ERP - Building Protected Windows Installer (.exe)
+echo ========================================================
+echo.
+
+echo [1/3] Checking dependencies...
+call npm.cmd install
 
 echo.
-echo [2/3] تشفير وحماية الكود المصدري (تحويل لبايت كود V8 ثنائي)...
-call npm run protect
+echo [2/3] Compiling and protecting source code (V8 Bytecode)...
+call npm.cmd run protect
 
 echo.
-echo [3/3] إنشاء ملف التثبيت التنفيذي BayanERP-Setup.exe...
-call npm run build:exe
+echo [3/3] Packaging installer (BayanERP-Setup.exe)...
+call npm.cmd run build:exe
 
 echo.
 echo ========================================================
-echo   ✅ تم الانتهاء بنجاح!
-echo   الملف التنفيذي جاهز في المجلد: dist-desktop\
+echo   SUCCESS! Installer ready in: dist-desktop\
 echo ========================================================
+echo.
 pause

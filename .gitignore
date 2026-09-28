@@ -6,6 +6,7 @@ data/
 *.db
 *.db-wal
 *.db-shm
+server/firebase-service-account.json
 
 # Logs & OS
 *.log

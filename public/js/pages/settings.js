@@ -3,6 +3,7 @@ const SettingsPage = {
   title: () => t('set_title'),
   async render(view) {
     const s = await api('/settings');
+    const { status: fbStatus } = await api('/firebase/status').catch(() => ({ status: null }));
     const company = s.company;
     const bc = company.base_currency;
 
@@ -57,6 +58,26 @@ const SettingsPage = {
             <button class="btn primary" id="backup-export">⬇ ${esc(t('backup_export'))}</button>
             <button class="btn" id="backup-import">⬆ ${esc(t('backup_import'))}</button>
             <input type="file" id="backup-file" accept=".json,application/json" hidden>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-head">
+          <h3>☁️ ${esc(t('fb_title'))}</h3>
+          <span class="badge ${fbStatus && fbStatus.configured ? 'green' : 'amber'}" id="fb-badge">
+            ${fbStatus && fbStatus.configured ? '● ' + esc(t('fb_configured')) : esc(t('fb_not_configured'))}
+          </span>
+        </div>
+        <div class="card-body">
+          <p class="muted small mb">${esc(t('fb_desc'))}</p>
+          <div style="display:flex;gap:16px;flex-wrap:wrap;align-items:center;margin-bottom:14px">
+            <div><span class="muted small">${esc(t('fb_project'))}:</span> <b>${esc(fbStatus?.projectId || 'bayan10')}</b></div>
+            ${fbStatus?.lastSync ? `<div><span class="muted small">${esc(t('fb_last_sync'))}:</span> <b>${esc(fmtDate(fbStatus.lastSync))}</b></div>` : ''}
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btn primary" id="fb-sync-btn">☁️ ${esc(t('fb_sync_now'))}</button>
+            <button class="btn" id="fb-restore-btn">🔄 ${esc(t('fb_restore_now'))}</button>
           </div>
         </div>
       </div>
@@ -175,6 +196,49 @@ const SettingsPage = {
       } catch (err) { toast(t('err_' + err.message) || t('err_generic'), 'err'); }
       btn.disabled = false;
     };
+
+    /* ---- firebase: cloud sync ---- */
+    const fbSyncBtn = view.querySelector('#fb-sync-btn');
+    if (fbSyncBtn) {
+      fbSyncBtn.onclick = async () => {
+        fbSyncBtn.disabled = true;
+        fbSyncBtn.textContent = '⏳ ' + t('fb_syncing');
+        try {
+          const res = await api('/firebase/sync', { method: 'POST' });
+          const c = res.result?.counts || {};
+          toast(t('fb_sync_success'));
+          toast(t('backup_restored_counts', {
+            accounts: c.accounts ?? 0, contacts: c.contacts ?? 0, products: c.products ?? 0,
+            invoices: c.invoices ?? 0, entries: c.journalEntries ?? 0, quotes: 0,
+          }));
+          this.render(view);
+        } catch (e) {
+          toast(t('fb_sync_error') + ': ' + (e.message || t('err_generic')), 'err');
+        } finally {
+          fbSyncBtn.disabled = false;
+          fbSyncBtn.innerHTML = '☁️ ' + esc(t('fb_sync_now'));
+        }
+      };
+    }
+
+    /* ---- firebase: cloud restore ---- */
+    const fbRestoreBtn = view.querySelector('#fb-restore-btn');
+    if (fbRestoreBtn) {
+      fbRestoreBtn.onclick = async () => {
+        if (!(await confirmDlg(t('fb_restore_confirm')))) return;
+        fbRestoreBtn.disabled = true;
+        fbRestoreBtn.textContent = '⏳ ' + t('loading');
+        try {
+          const res = await api('/firebase/restore', { method: 'POST' });
+          toast(t('fb_restore_success'));
+          setTimeout(() => location.reload(), 2000);
+        } catch (e) {
+          toast(t('fb_restore_error') + ': ' + (e.message || t('err_generic')), 'err');
+          fbRestoreBtn.disabled = false;
+          fbRestoreBtn.innerHTML = '🔄 ' + esc(t('fb_restore_now'));
+        }
+      };
+    }
 
     view.querySelector('#save-company').onclick = async () => {
       try {

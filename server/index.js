@@ -13,6 +13,16 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json({ limit: '50mb' }));
+
+// Force no-cache on JS/CSS so updates always reach the browser immediately
+app.use((req, res, next) => {
+  if (/\.(js|css)$/.test(req.path)) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
 /* Health check — returns 200 so Render's health check passes */

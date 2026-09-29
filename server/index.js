@@ -50,9 +50,25 @@ app.listen(PORT, '0.0.0.0', () => {
   if (process.env.DATA_DIR) console.log(`Persistent storage OK (DATA_DIR=${dataDir})`);
   else console.warn('WARNING: DATA_DIR not set — database is ephemeral and will be LOST on redeploy. Set DATA_DIR to a persistent volume!');
 
-  // Firebase Live Sync & Recovery
+  // ══════════════════════════════════════════════════════════════════
+  // Firebase Sync — يعمل فقط على سيرفر Render السحابي الموحّد
+  // ══════════════════════════════════════════════════════════════════
+  // بعد تطبيق حل "السحابة المركزية الموحدة"، أصبح تطبيق الديسكتوب
+  // يتصل مباشرة بهذا السيرفر السحابي دون تشغيل سيرفر محلي مستقل.
+  // لذلك المزامنة الدورية آمنة هنا: لا يوجد سيرفر ثانٍ ينافسها.
+  //
+  // RENDER_EXTERNAL_URL = متغير بيئة يضيفه Render تلقائياً على السحابة فقط
+  const isCloudServer = !!(process.env.RENDER_EXTERNAL_URL || process.env.IS_RENDER_SERVER);
   const { autoRestoreOnBoot, startPeriodicSync } = require('./firebase');
-  autoRestoreOnBoot().catch(e => console.error('[Firebase Boot] Startup sync error:', e.message));
-  startPeriodicSync(30);
+
+  if (isCloudServer) {
+    // على السيرفر السحابي: شغّل الاسترجاع والمزامنة الدورية
+    console.log('[Firebase] وضع السحابة الموحدة — المزامنة مع Firebase مفعّلة');
+    autoRestoreOnBoot().catch(e => console.error('[Firebase Boot] Startup sync error:', e.message));
+    startPeriodicSync(60); // كل 60 دقيقة كنسخ احتياطي (لا حاجة لـ 30 دقيقة)
+  } else {
+    // على أي جهاز محلي: لا تشغّل المزامنة — الديسكتوب يتصل بالسحابة مباشرة
+    console.log('[Firebase] وضع السيرفر المحلي — المزامنة الدورية معطّلة (الديسكتوب يتصل بالسحابة مباشرة)');
+  }
 });
 

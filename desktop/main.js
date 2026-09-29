@@ -1,10 +1,16 @@
-const { app, BrowserWindow, Menu, dialog } = require('electron');
+const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
-const http = require('http');
+const https = require('https');
+
+// ============================================================
+// الحل الأول: السحابة المركزية الموحدة (Single Source of Truth)
+// تطبيق الديسكتوب يتصل مباشرة بالسيرفر السحابي على Render
+// بحيث يشارك اللابتوب والجوال نفس قاعدة البيانات الحية
+// ============================================================
+const CLOUD_URL = 'https://bayan-alp6.onrender.com';
 
 let mainWindow = null;
-let serverProcess = null;
-const SERVER_PORT = 34567; // Local embedded server port
+let splashWindow = null;
 
 // Ensure single instance lock
 const gotTheLock = app.requestSingleInstanceLock();
@@ -21,49 +27,96 @@ if (!gotTheLock) {
   app.whenReady().then(initApp);
 }
 
-function startEmbeddedServer() {
-  // Set custom persistent storage path in user's AppData
-  const userDataDir = app.getPath('userData');
-  const dbDir = path.join(userDataDir, 'database');
-  process.env.DATA_DIR = dbDir;
-  process.env.PORT = String(SERVER_PORT);
+// ── شاشة التحميل (Splash Screen) ────────────────────────────
+function createSplashWindow() {
+  splashWindow = new BrowserWindow({
+    width: 480,
+    height: 320,
+    frame: false,
+    transparent: false,
+    resizable: false,
+    alwaysOnTop: true,
+    center: true,
+    backgroundColor: '#1a1a2e',
+    webPreferences: { nodeIntegration: false, contextIsolation: true }
+  });
 
-  // Require compiled or standard server
-  try {
-    const appBuildEntry = path.join(__dirname, 'app-build', 'server', 'index.js');
-    if (require('fs').existsSync(appBuildEntry)) {
-      require('bytenode');
-      require(appBuildEntry);
-      console.log('[Desktop] Loaded protected bytecode server from app-build.');
-      return;
-    }
+  const splashHtml = `
+    <!DOCTYPE html>
+    <html dir="rtl" lang="ar">
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+          background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          height: 100vh; font-family: 'Segoe UI', Tahoma, Arial, sans-serif;
+          color: white; overflow: hidden;
+        }
+        .logo { font-size: 52px; margin-bottom: 12px; }
+        h1 { font-size: 28px; font-weight: 700; margin-bottom: 6px; letter-spacing: 1px; }
+        .sub { font-size: 13px; color: #a0aec0; margin-bottom: 32px; }
+        .spinner-wrap { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+        .spinner {
+          width: 40px; height: 40px; border: 4px solid rgba(255,255,255,0.2);
+          border-top-color: #4299e1; border-radius: 50%;
+          animation: spin 0.9s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .status { font-size: 13px; color: #90cdf4; text-align: center; animation: pulse 2s ease-in-out infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        .bar-wrap { width: 280px; height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 8px; }
+        .bar { height: 4px; background: linear-gradient(90deg,#4299e1,#63b3ed); border-radius: 2px; width: 0%; animation: load 20s ease-out forwards; }
+        @keyframes load { 0%{width:5%} 30%{width:40%} 70%{width:75%} 95%{width:92%} 100%{width:95%} }
+      </style>
+    </head>
+    <body>
+      <div class="logo">📊</div>
+      <h1>بيان ERP</h1>
+      <div class="sub">نظام إدارة المبيعات والمخزون</div>
+      <div class="spinner-wrap">
+        <div class="spinner"></div>
+        <div class="status">جارٍ الاتصال بالسيرفر السحابي…</div>
+        <div class="bar-wrap"><div class="bar"></div></div>
+      </div>
+    </body>
+    </html>
+  `;
 
-    require(path.join(__dirname, '..', 'server', 'index.js'));
-    console.log('[Desktop] Loaded standard server.');
-  } catch (err) {
-    console.error('[Desktop] Failed to start server:', err);
-    dialog.showErrorBox('خطأ في تشغيل النظام', 'تعذر تشغيل الخادم الداخلي: ' + err.message);
-  }
+  splashWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(splashHtml));
+  splashWindow.show();
 }
 
-function waitForServer(url, timeoutMs = 15000) {
+// ── التحقق من جاهزية السيرفر السحابي ────────────────────────
+function waitForCloud(timeoutMs = 60000) {
   const start = Date.now();
+  const url = new URL(CLOUD_URL + '/api/health');
+
   return new Promise((resolve, reject) => {
     const check = () => {
-      http.get(url, (res) => {
-        if (res.statusCode === 200 || res.statusCode === 302 || res.statusCode === 404) {
+      const req = https.get({
+        hostname: url.hostname,
+        path: url.pathname,
+        timeout: 8000
+      }, (res) => {
+        if (res.statusCode >= 200 && res.statusCode < 500) {
           resolve();
         } else {
           retry();
         }
-      }).on('error', retry);
+        res.resume();
+      });
+      req.on('error', retry);
+      req.on('timeout', () => { req.abort(); retry(); });
     };
 
     const retry = () => {
       if (Date.now() - start > timeoutMs) {
-        reject(new Error('Server boot timeout'));
+        reject(new Error('timeout'));
       } else {
-        setTimeout(check, 300);
+        setTimeout(check, 2000);
       }
     };
 
@@ -71,11 +124,8 @@ function waitForServer(url, timeoutMs = 15000) {
   });
 }
 
-async function initApp() {
-  // Start local server silently
-  startEmbeddedServer();
-
-  // Create Window
+// ── النافذة الرئيسية ─────────────────────────────────────────
+function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 840,
@@ -83,33 +133,77 @@ async function initApp() {
     minHeight: 700,
     title: 'بيان ERP — نظام إدارة المبيعات والمخزون',
     icon: path.join(__dirname, '..', 'public', 'img', 'logo.jpeg'),
+    show: false,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      devTools: false // Locked in production for client security
+      devTools: false
     },
     autoHideMenuBar: true
   });
 
-  Menu.setApplicationMenu(null); // Hide default menu
+  Menu.setApplicationMenu(null);
 
-  const appUrl = `http://127.0.0.1:${SERVER_PORT}`;
+  // فتح الروابط الخارجية في المتصفح الافتراضي
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    if (!url.startsWith(CLOUD_URL)) shell.openExternal(url);
+    return { action: 'deny' };
+  });
 
-  try {
-    await waitForServer(`http://127.0.0.1:${SERVER_PORT}/api/health`, 12000);
-    mainWindow.loadURL(appUrl);
-  } catch (err) {
-    console.warn('[Desktop] Wait server timeout, loading URL directly...');
-    mainWindow.loadURL(appUrl);
-  }
+  mainWindow.loadURL(CLOUD_URL);
+
+  mainWindow.once('ready-to-show', () => {
+    // أغلق شاشة التحميل وأظهر النافذة الرئيسية
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+      splashWindow = null;
+    }
+    mainWindow.show();
+    mainWindow.focus();
+  });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // إذا فشل التحميل، أظهر خطأ واضحاً
+  mainWindow.webContents.on('did-fail-load', (e, code, desc) => {
+    if (code === -3) return; // ERR_ABORTED (normal navigation)
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.destroy();
+      splashWindow = null;
+    }
+    mainWindow.show();
+    mainWindow.loadURL('data:text/html;charset=utf-8,' + encodeURIComponent(`
+      <!DOCTYPE html><html dir="rtl" lang="ar"><head><meta charset="UTF-8">
+      <style>body{font-family:'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;justify-content:center;height:100vh;margin:0;background:#f7fafc;color:#2d3748;}
+      h2{color:#e53e3e;margin-bottom:12px}p{color:#718096;font-size:14px;text-align:center;max-width:400px}
+      button{margin-top:24px;padding:10px 28px;background:#4299e1;color:white;border:none;border-radius:8px;font-size:15px;cursor:pointer;border-radius:6px}
+      button:hover{background:#3182ce}</style></head>
+      <body>
+        <div style="font-size:48px;margin-bottom:16px">🌐</div>
+        <h2>تعذّر الاتصال بالسيرفر</h2>
+        <p>تأكد من اتصال الإنترنت ثم أعد المحاولة.<br>كود الخطأ: ${code}</p>
+        <button onclick="location.href='${CLOUD_URL}'">🔄 إعادة المحاولة</button>
+      </body></html>
+    `));
+  });
+}
+
+// ── التهيئة الرئيسية ──────────────────────────────────────────
+async function initApp() {
+  createSplashWindow();
+
+  try {
+    await waitForCloud(55000);
+  } catch (err) {
+    // إذا فاق وقت الانتظار، افتح على أي حال (قد يكون جاهزاً)
+    console.warn('[Desktop] Cloud wait timeout — loading anyway:', err.message);
+  }
+
+  createMainWindow();
 }
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  if (process.platform !== 'darwin') app.quit();
 });

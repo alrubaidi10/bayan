@@ -40,16 +40,23 @@ function startEmbeddedServer() {
   try {
     const appBuildEntry = path.join(__dirname, 'app-build', 'server', 'index.js');
     if (require('fs').existsSync(appBuildEntry)) {
-      require('bytenode');
-      require(appBuildEntry);
-      console.log('[Desktop] Loaded protected bytecode server from app-build.');
-      return;
+      try {
+        // حاول تحميل الكود المحمي (Bytecode)
+        require('bytenode');
+        require(appBuildEntry);
+        console.log('[Desktop] Loaded protected bytecode server.');
+        return;
+      } catch (bytecodeErr) {
+        // إذا رُفض الـ Bytecode (اختلاف نسخة V8/Electron) انتقل للكود العادي تلقائياً
+        console.warn('[Desktop] Bytecode rejected (V8 mismatch), falling back to source JS:', bytecodeErr.message);
+      }
     }
+    // الكود العادي — احتياطي دائماً
     require(path.join(__dirname, '..', 'server', 'index.js'));
-    console.log('[Desktop] Loaded standard server.');
+    console.log('[Desktop] Loaded standard server (source JS).');
   } catch (err) {
     console.error('[Desktop] Failed to start server:', err);
-    dialog.showErrorBox('خطأ في تشغيل النظام', 'تعذر تشغيل الخادم الداخلي: ' + err.message);
+    dialog.showErrorBox('خطأ في تشغيل النظام', 'تعذر تشغيل الخادم الداخلي:\n' + err.message);
   }
 }
 

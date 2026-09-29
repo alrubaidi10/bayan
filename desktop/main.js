@@ -52,7 +52,7 @@ function startEmbeddedServer() {
       }
     }
     // الكود العادي — احتياطي دائماً
-    require(path.join(__dirname, '..', 'server', 'index.js'));
+    require(path.join(__dirname, 'server', 'index.js'));
     console.log('[Desktop] Loaded standard server (source JS).');
   } catch (err) {
     console.error('[Desktop] Failed to start server:', err);

@@ -2,6 +2,7 @@ const express = require('express');
 const { db, requireAuth, hashPassword, todayISO, daysLeft } = require('../lib');
 const { createCompany } = require('../seed');
 const { syncAccount } = require('../persistent');
+const { syncCompanyToFirestore } = require('../firebase');
 
 const router = express.Router();
 router.use(requireAuth);
@@ -56,6 +57,11 @@ router.post('/companies', (req, res) => {
   const fullCompany = db.prepare('SELECT * FROM companies WHERE id = ?').get(company.id);
   const fullUser = db.prepare('SELECT * FROM users WHERE id = ?').get(user.id);
   syncAccount(fullCompany, fullUser);
+
+  // Sync new company to Firebase for permanent cloud backup
+  syncCompanyToFirestore(company.id).catch(err => {
+    console.error('Failed to sync new company to Firebase:', err.message);
+  });
 
   res.json({ company: fullCompany, user });
 });

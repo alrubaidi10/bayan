@@ -2,14 +2,36 @@ const { app, BrowserWindow, Menu, dialog, shell } = require('electron');
 const path = require('path');
 const http = require('http');
 const https = require('https');
+const fs = require('fs');
+
+// Function to copy directory recursively
+function copyDirectory(src, dest) {
+  try {
+    if (!fs.existsSync(dest)) {
+      fs.mkdirSync(dest, { recursive: true });
+    }
+    const entries = fs.readdirSync(src, { withFileTypes: true });
+    for (const entry of entries) {
+      const srcPath = path.join(src, entry.name);
+      const destPath = path.join(dest, entry.name);
+      if (entry.isDirectory()) {
+        copyDirectory(srcPath, destPath);
+      } else {
+        fs.copyFileSync(srcPath, destPath);
+      }
+    }
+  } catch (err) {
+    console.error('[Desktop] Error copying directory:', err);
+  }
+}
 
 // ============================================================
-// بيان ERP — Hybrid Architecture
+// بيان ERP — Desktop Architecture
 // الواجهة: سيرفر محلي مضمّن (يضمن تحديث الـ UI فوراً بعد تثبيت EXE جديد)
-// قاعدة البيانات: Render السحابي الموحّد (Single Source of Truth)
+// قاعدة البيانات: SQLite محلي + Firebase مباشر (للعملاء الجدد والمزامنة)
 // ============================================================
 const SERVER_PORT = 34567;
-const CLOUD_API   = 'https://bayan-alp6.onrender.com'; // للبيانات فقط
+const FIREBASE_MODE = 'embedded'; // embedded: مدمج مع Firebase مباشر
 
 let mainWindow   = null;
 let splashWindow = null;
@@ -32,10 +54,36 @@ if (!gotTheLock) {
 function startEmbeddedServer() {
   const userDataDir = app.getPath('userData');
   const dbDir = path.join(userDataDir, 'database');
+  const serverDir = path.join(userDataDir, 'server');
+  
+  // Copy server files to userData for each user
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    
+    // Copy server directory if not exists
+    const sourceServer = path.join(__dirname, '..', 'server');
+    if (!fs.existsSync(serverDir)) {
+      fs.mkdirSync(serverDir, { recursive: true });
+      copyDirectory(sourceServer, serverDir);
+    }
+    
+    // Copy firebase config if exists
+    const sourceFirebase = path.join(__dirname, '..', 'server', 'firebase-service-account.json');
+    if (fs.existsSync(sourceFirebase)) {
+      const destFirebase = path.join(serverDir, 'firebase-service-account.json');
+      if (!fs.existsSync(destFirebase)) {
+        fs.copyFileSync(sourceFirebase, destFirebase);
+      }
+    }
+  } catch (e) {
+    console.warn('[Desktop] Could not copy server files:', e.message);
+  }
+  
   process.env.DATA_DIR   = dbDir;
   process.env.PORT       = String(SERVER_PORT);
-  // أخبر السيرفر أنه في وضع desktop لا يُشغّل المزامنة الدورية
   process.env.DESKTOP_MODE = '1';
+  process.env.FIREBASE_MODE = 'embedded';
 
   try {
     const appBuildEntry = path.join(__dirname, 'app-build', 'server', 'index.js');
@@ -51,9 +99,10 @@ function startEmbeddedServer() {
         console.warn('[Desktop] Bytecode rejected (V8 mismatch), falling back to source JS:', bytecodeErr.message);
       }
     }
-    // الكود العادي — احتياطي دائماً
-    require(path.join(__dirname, 'server', 'index.js'));
-    console.log('[Desktop] Loaded standard server (source JS).');
+    // الكود الأصلي من extraResources — دائماً موجود خارج الـ asar
+    const fallbackServer = path.join(process.resourcesPath, 'server', 'index.js');
+    require(fallbackServer);
+    console.log('[Desktop] Loaded fallback server from extraResources.');
   } catch (err) {
     console.error('[Desktop] Failed to start server:', err);
     dialog.showErrorBox('خطأ في تشغيل النظام', 'تعذر تشغيل الخادم الداخلي:\n' + err.message);

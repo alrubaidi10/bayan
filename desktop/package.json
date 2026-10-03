@@ -26,9 +26,19 @@
       "main.js",
       "app-build/**/*",
       "../public/**/*",
-      "../server/**/*",
       "../package.json",
       "../node_modules/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "../server",
+        "to": "server",
+        "filter": ["**/*.js", "**/*.json", "!node_modules/**"]
+      },
+      {
+        "from": "../public",
+        "to": "public"
+      }
     ],
     "win": {
       "target": "nsis",

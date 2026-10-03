@@ -2,10 +2,13 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-const dataDir = process.env.DATA_DIR || path.join(__dirname, '..', 'data');
+// Desktop mode: use user-specific database
+const isDesktop = process.env.DESKTOP_MODE === '1' || process.env.FIREBASE_MODE === 'embedded';
+const dataDir = isDesktop ? (process.env.DATA_DIR || path.join(require('electron').app.getPath('userData'), 'database')) : (process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
 fs.mkdirSync(dataDir, { recursive: true });
 
-const db = new Database(path.join(dataDir, 'erp.db'));
+const dbPath = path.join(dataDir, 'erp.db');
+const db = new Database(dbPath);
 db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 

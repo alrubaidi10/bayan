@@ -34,6 +34,19 @@ function syncTimeWithGoogle() {
 }
 
 function getServiceAccount() {
+  // Desktop mode: check userData folder first
+  if (process.env.FIREBASE_MODE === 'embedded') {
+    const userDataPath = require('electron').app.getPath('userData');
+    const desktopFirebasePath = path.join(userDataPath, 'server', 'firebase-service-account.json');
+    try {
+      if (fs.existsSync(desktopFirebasePath)) {
+        return JSON.parse(fs.readFileSync(desktopFirebasePath, 'utf8'));
+      }
+    } catch (e) {
+      console.error('Failed to read desktop firebase config:', e.message);
+    }
+  }
+  
   // 1. Environment variable (Render / Production)
   if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     try {

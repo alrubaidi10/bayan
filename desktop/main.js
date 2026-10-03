@@ -28,10 +28,11 @@ function copyDirectory(src, dest) {
 // ============================================================
 // بيان ERP — Desktop Architecture
 // الواجهة: سيرفر محلي مضمّن (يضمن تحديث الـ UI فوراً بعد تثبيت EXE جديد)
-// قاعدة البيانات: SQLite محلي + Firebase مباشر (للعملاء الجدد والمزامنة)
+// قاعدة البيانات: Firebase Cloud Firestore (Single Source of Truth)
+// كل التغييرات تظهر تلقائياً على جميع الأجهزة
 // ============================================================
 const SERVER_PORT = 34567;
-const FIREBASE_MODE = 'embedded'; // embedded: مدمج مع Firebase مباشر
+const USE_FIREBASE_SYNC = true; // تفعيل المزامنة المباشرة مع Firebase
 
 let mainWindow   = null;
 let splashWindow = null;
